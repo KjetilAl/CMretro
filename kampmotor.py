@@ -21,8 +21,8 @@ P_SKADE              = 0.008       # Per intervall per lag
 P_STRAFFE            = 0.015       # Per intervall ved sjanse
 # In-game kondisjon-drop per halvtid (5-minutters intervall)
 INGAME_DROP_PER_INTERVALL = 2.5    # Grunnverdi, justeres av utholdenhet
-HALVTID_RESTITUSJON_MIN = 10.0   # % ved utholdenhet 1
-HALVTID_RESTITUSJON_MAX = 20.0   # % ved utholdenhet 20
+HALVTID_RESTITUSJON_MIN   = 10.0   # % inn-game kondisjon hentet i pause, utholdenhet 1
+HALVTID_RESTITUSJON_MAX   = 20.0   # % inn-game kondisjon hentet i pause, utholdenhet 20
 SKADE_KONDISJON_TERSKEL   = 60.0   # Under dette: forhøyet skaderisiko
 
 MAAL_TYPER = [
@@ -607,22 +607,21 @@ class KampMotor:
         2. AI-manager vurderer taktikk og bytter
         3. Sonestyrker beregnes på nytt for 2. omgang
         """
-        for spiller in lag.aktive_spillere:
-            if hasattr(spiller, 'utholdenhet'):
-                restitusjon = HALVTID_RESTITUSJON_MIN + (
-                    (spiller.utholdenhet - 1) / 19
-                    * (HALVTID_RESTITUSJON_MAX - HALVTID_RESTITUSJON_MIN)
-                )
-                spiller.in_game_kondisjon = min(
-                    spiller.kondisjon,   # Kan ikke overstige persistent kondisjon
-                    spiller.in_game_kondisjon + restitusjon
-                )
-                
         for lag in [self._hjemme, self._borte]:
             for spiller in lag.aktive_spillere:
-                if hasattr(spiller, 'oppdater_in_game_kondisjon'):
-                    # Ekstra halvtids-drop: mer for spillere med lav utholdenhet
-                    spiller.oppdater_in_game_kondisjon(HALVTID_EKSTRA_DROP)
+                if hasattr(spiller, 'in_game_kondisjon'):
+                    # Spillere hviler, får massasje og styrkedrikker i pausen
+                    # Restitusjon: 10% ved utholdenhet 1, 20% ved utholdenhet 20
+                    uth = getattr(spiller, 'utholdenhet', 10)
+                    restitusjon = HALVTID_RESTITUSJON_MIN + (
+                        (uth - 1) / (SKALA_MAX - 1)
+                        * (HALVTID_RESTITUSJON_MAX - HALVTID_RESTITUSJON_MIN)
+                    )
+                    # Taket er persistent kondisjon — pausen fjerner ikke kampslitasje
+                    spiller.in_game_kondisjon = min(
+                        spiller.kondisjon,
+                        spiller.in_game_kondisjon + restitusjon
+                    )
 
             ny_taktikk = hent_taktisk_respons(
                 mentalitet=lag.taktikk.mentalitet,
