@@ -40,34 +40,93 @@ MAAL_TYPER = [
 # =============================================================================
 @dataclass
 class KampStatistikk:
-    ballbesittelse_hjemme: float = 0.0
-    skudd_hjemme: int = 0
-    skudd_borte: int = 0
-    skudd_paa_maal_hjemme: int = 0
-    skudd_paa_maal_borte: int = 0
-    gule_kort_hjemme: int = 0
-    gule_kort_borte: int = 0
-    røde_kort_hjemme: int = 0
-    røde_kort_borte: int = 0
-    skader_hjemme: int = 0
-    skader_borte: int = 0
+    # --- Lagstatistikk ---
+    intervaller_vunnet_hjemme: int = 0
+    intervaller_vunnet_borte:  int = 0
+    sjanser_hjemme:            int = 0
+    sjanser_borte:             int = 0
+    skudd_hjemme:              int = 0
+    skudd_borte:               int = 0
+    skudd_paa_maal_hjemme:     int = 0
+    skudd_paa_maal_borte:      int = 0
+    gule_kort_hjemme:          int = 0
+    gule_kort_borte:           int = 0
+    røde_kort_hjemme:          int = 0
+    røde_kort_borte:           int = 0
+    skader_hjemme:             int = 0
+    skader_borte:              int = 0
+
+    # --- Spillerbørs ---
+    # Mapper spiller-objekt → løpende rating (startverdi 6.0)
+    spiller_rating: dict = field(default_factory=dict)
 
     @property
-    def ballbesittelse_borte(self) -> float:
-        return 100.0 - self.ballbesittelse_hjemme
+    def ballbesittelse(self) -> tuple[int, int]:
+        """Returnerer (hjemme%, borte%) basert på vunnede intervaller."""
+        totalt = self.intervaller_vunnet_hjemme + self.intervaller_vunnet_borte
+        if totalt == 0:
+            return (50, 50)
+        hjemme = int((self.intervaller_vunnet_hjemme / totalt) * 100)
+        return (hjemme, 100 - hjemme)
 
-    def print(self):
-        print(f"  Ballbesittelse:  {self.ballbesittelse_hjemme:.0f}% – "
-              f"{self.ballbesittelse_borte:.0f}%")
-        print(f"  Skudd:           {self.skudd_hjemme} – {self.skudd_borte}")
-        print(f"  Skudd på mål:    {self.skudd_paa_maal_hjemme} – "
-              f"{self.skudd_paa_maal_borte}")
+    def initialiser_spiller(self, spiller):
+        """Registrerer en spiller i børsen med startverdi 6.0."""
+        if spiller not in self.spiller_rating:
+            self.spiller_rating[spiller] = 6.0
+
+    def juster_rating(self, spiller, endring: float):
+        """Justerer en spillers børsrating og klamper til 1.0–10.0."""
+        self.initialiser_spiller(spiller)
+        ny = self.spiller_rating[spiller] + endring
+        self.spiller_rating[spiller] = max(1.0, min(10.0, ny))
+
+    def hent_rating(self, spiller) -> float:
+        return self.spiller_rating.get(spiller, 6.0)
+
+    def print_kampsammendrag(self, hjemme_navn: str, borte_navn: str,
+                              maal_hjemme: int, maal_borte: int):
+        """CM95-inspirert statistikkskjerm."""
+        bes_h, bes_b = self.ballbesittelse
+        print()
+        print("=" * 44)
+        print(f" {hjemme_navn:<18} {maal_hjemme} – {maal_borte} {borte_navn}")
+        print("=" * 44)
+        print(f"  {str(bes_h)+'%':>8}   Ballbesittelse   {str(bes_b)+'%':<8}")
+        print(f"  {self.sjanser_hjemme:>8}   Sjanser          {self.sjanser_borte:<8}")
+        print(f"  {self.skudd_hjemme:>8}   Skudd            {self.skudd_borte:<8}")
+        print(f"  {self.skudd_paa_maal_hjemme:>8}   Skudd på mål     {self.skudd_paa_maal_borte:<8}")
         if self.gule_kort_hjemme or self.gule_kort_borte:
-            print(f"  Gule kort:       {self.gule_kort_hjemme} – "
-                  f"{self.gule_kort_borte}")
+            print(f"  {self.gule_kort_hjemme:>8}   Gule kort        {self.gule_kort_borte:<8}")
         if self.røde_kort_hjemme or self.røde_kort_borte:
-            print(f"  Røde kort:       {self.røde_kort_hjemme} – "
-                  f"{self.røde_kort_borte}")
+            print(f"  {self.røde_kort_hjemme:>8}   Røde kort        {self.røde_kort_borte:<8}")
+        print("=" * 44)
+
+    def print_spillerbors(self, hjemme_spillere: list, borte_spillere: list,
+                           hjemme_navn: str, borte_navn: str):
+        """Printer spillerbørs CM95-stil — begge lag side ved side."""
+        print()
+        print("=" * 44)
+        print(f"  SPILLERBØRS")
+        print("=" * 44)
+        print(f"  {hjemme_navn:<20}  {borte_navn}")
+        print("-" * 44)
+
+        maks = max(len(hjemme_spillere), len(borte_spillere))
+        for i in range(maks):
+            h_tekst = ""
+            b_tekst = ""
+            if i < len(hjemme_spillere):
+                s = hjemme_spillere[i]
+                navn = getattr(s, 'etternavn', '?')
+                r = self.hent_rating(s)
+                h_tekst = f"{navn:<16} {r:.1f}"
+            if i < len(borte_spillere):
+                s = borte_spillere[i]
+                navn = getattr(s, 'etternavn', '?')
+                r = self.hent_rating(s)
+                b_tekst = f"{navn:<16} {r:.1f}"
+            print(f"  {h_tekst:<20}  {b_tekst}")
+        print("=" * 44)
 
 
 # =============================================================================
@@ -343,11 +402,12 @@ class KampMotor:
         self._hjemme = LagTilstand(hjemme_klubb, hjemme_oppstilling, er_hjemmelag=True)
         self._borte  = LagTilstand(borte_klubb,  borte_oppstilling,  er_hjemmelag=False)
 
-        # Tilbakestill in-game kondisjon for alle spillere til persistent kondisjon
+        # Tilbakestill in-game kondisjon og initialiser spillerbørs
         for lag in [self._hjemme, self._borte]:
             for spiller in lag.aktive_spillere:
                 if hasattr(spiller, 'tilbakestill_in_game_kondisjon'):
                     spiller.tilbakestill_in_game_kondisjon()
+                self.resultat.statistikk.initialiser_spiller(spiller)
 
         hjemme_navn = getattr(hjemme_klubb, 'navn', str(hjemme_klubb))
         borte_navn  = getattr(borte_klubb,  'navn', str(borte_klubb))
@@ -412,15 +472,24 @@ class KampMotor:
 
         if random.random() < p_kontroll:
             angriper, forsvarer = self._hjemme, self._borte
-            self.resultat.statistikk.ballbesittelse_hjemme += (100 / ANTALL_INTERVALLER)
+            self.resultat.statistikk.intervaller_vunnet_hjemme += 1
+            # Midtbanespillere på vinnende lag får liten bonus
+            self._gi_midtbane_bonus(self._hjemme, +0.10)
         else:
             angriper, forsvarer = self._borte, self._hjemme
+            self.resultat.statistikk.intervaller_vunnet_borte += 1
+            self._gi_midtbane_bonus(self._borte, +0.10)
 
         # --- P(sjanse | kontroll) ---
         a_styrke = angriper.hent_effektiv_lagdel('A')
         p_sjanse = (a_styrke / 20.0) * angriper.taktikk_vekt_angrep * 0.35
 
         if random.random() < p_sjanse:
+            # Tel sjansen
+            if angriper.er_hjemmelag:
+                self.resultat.statistikk.sjanser_hjemme += 1
+            else:
+                self.resultat.statistikk.sjanser_borte += 1
             self._forsøk_mål(intervall, angriper, forsvarer)
 
             # Straffespark-sjanse
@@ -441,6 +510,8 @@ class KampMotor:
         # --- P(skudd på mål | sjanse) ---
         p_skudd = a_styrke / (a_styrke + f_styrke)
         if random.random() > p_skudd:
+            # Forsvarerne stoppet sjansen — de fortjener liten bonus
+            self._gi_forsvar_bonus(forsvarer, +0.10)
             return
 
         # Skudd på mål
@@ -455,8 +526,12 @@ class KampMotor:
         if not spiss or not keeper:
             return
 
-        spiss_ferdighet  = getattr(spiss,  'ferdighet', 10)
-        keeper_ferdighet = getattr(keeper, 'ferdighet', 10)
+        spiss_ferdighet  = getattr(spiss,  'effektiv_ferdighet', None)
+        if spiss_ferdighet is None:
+            spiss_ferdighet = getattr(spiss, 'ferdighet', 10)
+        keeper_ferdighet = getattr(keeper, 'effektiv_ferdighet', None)
+        if keeper_ferdighet is None:
+            keeper_ferdighet = getattr(keeper, 'ferdighet', 10)
 
         # --- P(mål | skudd på mål) ---
         p_maal = spiss_ferdighet / (spiss_ferdighet + keeper_ferdighet)
@@ -465,6 +540,11 @@ class KampMotor:
             minutt = (intervall * 5) + random.randint(1, 5)
             maal_type = self._trekk_maal_type()
             self._registrer_maal(minutt, angriper, spiss, maal_type)
+        else:
+            # Keeper reddet! Belønnes
+            self.resultat.statistikk.juster_rating(keeper, +0.30)
+            # Forsvarerne som blokkerte sjansen
+            self._gi_forsvar_bonus(forsvarer, +0.15)
 
     def _forsøk_straffe(self, intervall: int, angriper: LagTilstand, forsvarer: LagTilstand):
         """Straffespark i ordinær tid."""
@@ -517,6 +597,13 @@ class KampMotor:
         )
         self.resultat.hendelser.append(hendelse)
 
+        # Spillerbørs — scorer og assist
+        self.resultat.statistikk.juster_rating(spiller, +1.50)
+
+        # Forsvarerne på tapende lag mister litt
+        tapende = self._borte if er_hjemme else self._hjemme
+        self._gi_forsvar_bonus(tapende, -0.20)
+
         # Attributtdrift — scorer vokser på suksess
         if hasattr(spiller, 'opplev_hendelse'):
             spiller.opplev_hendelse("vinner_viktig_kamp")
@@ -543,6 +630,7 @@ class KampMotor:
                         self.resultat.statistikk.gule_kort_hjemme += 1
                     else:
                         self.resultat.statistikk.gule_kort_borte += 1
+                    self.resultat.statistikk.juster_rating(spiller, -1.00)
                     self.resultat.hendelser.append(KampHendelse(
                         minutt=minutt, type="gult_kort",
                         lag=lag_str, spiller=spiller,
@@ -556,6 +644,7 @@ class KampMotor:
                         self.resultat.statistikk.røde_kort_hjemme += 1
                     else:
                         self.resultat.statistikk.røde_kort_borte += 1
+                    self.resultat.statistikk.juster_rating(spiller, -2.50)
                     self.resultat.hendelser.append(KampHendelse(
                         minutt=minutt, type="rødt_kort",
                         lag=lag_str, spiller=spiller,
@@ -596,6 +685,27 @@ class KampMotor:
                             lag=lag_str, spiller=innbytter,
                             detalj=f"Inn for {getattr(spiller, 'etternavn', '?')}",
                         ))
+
+    # =========================================================================
+    # BØRS-HJELPERE
+    # =========================================================================
+    def _gi_midtbane_bonus(self, lag: LagTilstand, endring: float):
+        """Gir alle midtbanespillere på laget en liten børsjustering."""
+        from taktikk import POSISJON_GRUPPE
+        stats = self.resultat.statistikk
+        for spiller in lag.aktive_spillere:
+            pos = getattr(spiller, 'primær_posisjon', None)
+            if pos and POSISJON_GRUPPE.get(pos) == 'M':
+                stats.juster_rating(spiller, endring)
+
+    def _gi_forsvar_bonus(self, lag: LagTilstand, endring: float):
+        """Gir alle forsvarsspillere på laget en børsjustering."""
+        from taktikk import POSISJON_GRUPPE, Posisjon
+        stats = self.resultat.statistikk
+        for spiller in lag.aktive_spillere:
+            pos = getattr(spiller, 'primær_posisjon', None)
+            if pos and (POSISJON_GRUPPE.get(pos) == 'F' or pos == Posisjon.K):
+                stats.juster_rating(spiller, endring)
 
     # =========================================================================
     # HALVTID
