@@ -19,6 +19,11 @@ P_GULT_KORT          = 0.04        # Per intervall per lag
 P_RØDT_KORT          = 0.005       # Per intervall per lag
 P_SKADE              = 0.008       # Per intervall per lag
 P_STRAFFE            = 0.015       # Per intervall ved sjanse
+# In-game kondisjon-drop per halvtid (5-minutters intervall)
+INGAME_DROP_PER_INTERVALL = 2.5    # Grunnverdi, justeres av utholdenhet
+HALVTID_EKSTRA_DROP       = 5.0    # Ekstra drop ved halvtid (akkumulert tretthet)
+SKADE_KONDISJON_TERSKEL   = 60.0   # Under dette: forhøyet skaderisiko
+
 MAAL_TYPER = [
     ("Heading",     0.15),
     ("Langskudd",   0.12),
@@ -337,6 +342,12 @@ class KampMotor:
         self._hjemme = LagTilstand(hjemme_klubb, hjemme_oppstilling, er_hjemmelag=True)
         self._borte  = LagTilstand(borte_klubb,  borte_oppstilling,  er_hjemmelag=False)
 
+        # Tilbakestill in-game kondisjon for alle spillere til persistent kondisjon
+        for lag in [self._hjemme, self._borte]:
+            for spiller in lag.aktive_spillere:
+                if hasattr(spiller, 'tilbakestill_in_game_kondisjon'):
+                    spiller.tilbakestill_in_game_kondisjon()
+
         hjemme_navn = getattr(hjemme_klubb, 'navn', str(hjemme_klubb))
         borte_navn  = getattr(borte_klubb,  'navn', str(borte_klubb))
 
@@ -359,6 +370,9 @@ class KampMotor:
         self._halvtid()
         self._spill_omgang(start=HALVTID_INTERVALL, slutt=ANTALL_INTERVALLER)
 
+        # Oppdater persistent kondisjon
+        self._sluttspill()
+
         # Ekstraomganger (cup) hvis uavgjort
         if (self.tillat_ekstraomganger
                 and self.resultat.hjemme_maal == self.resultat.borte_maal):
@@ -380,7 +394,13 @@ class KampMotor:
         """
         Kjernen i simuleringen.
         Avgjør kontroll → sjanse → skudd → mål for hvert 5-minutters intervall.
+        In-game kondisjon faller gradvis — svake spillere kollapser i 2. omgang.
         """
+        # Oppdater in-game kondisjon for alle aktive spillere
+        for lag in [self._hjemme, self._borte]:
+            for spiller in lag.aktive_spillere:
+                if hasattr(spiller, 'oppdater_in_game_kondisjon'):
+                    spiller.oppdater_in_game_kondisjon(INGAME_DROP_PER_INTERVALL)
         m_hjemme = (self._hjemme.hent_effektiv_lagdel('M')
                     * (1 + self._hjemme_matchup))
         m_borte  = (self._borte.hent_effektiv_lagdel('M')
@@ -540,18 +560,34 @@ class KampMotor:
                         lag=lag_str, spiller=spiller,
                     ))
 
-            # Skade
-            if random.random() < P_SKADE:
+            # Skade — forhøyet risiko ved lav in-game kondisjon
+            skade_multiplikator = 1.0
+            # Sjekk om noen aktive spillere er under kritisk kondisjon
+            kritiske = [
+                s for s in lag.aktive_spillere
+                if getattr(s, 'in_game_kondisjon', 100.0) < SKADE_KONDISJON_TERSKEL
+            ]
+            if kritiske:
+                skade_multiplikator = max(
+                    getattr(s, 'skaderisiko_multiplikator', 1.0)
+                    for s in kritiske
+                )
+            if random.random() < P_SKADE * skade_multiplikator:
                 spiller = lag.velg_kortkandidаt()
                 if spiller:
+                    # Påfør skaden med type og varighet
+                    if hasattr(spiller, 'paadra_skade'):
+                        spiller.paadra_skade()
                     innbytter = lag.registrer_skade(spiller)
                     if lag.er_hjemmelag:
                         self.resultat.statistikk.skader_hjemme += 1
                     else:
                         self.resultat.statistikk.skader_borte += 1
+                    skade_tekst = getattr(spiller, 'skade_type', 'Skade')
                     self.resultat.hendelser.append(KampHendelse(
                         minutt=minutt, type="skade",
                         lag=lag_str, spiller=spiller,
+                        detalj=skade_tekst,
                     ))
                     if innbytter:
                         self.resultat.hendelser.append(KampHendelse(
@@ -564,8 +600,18 @@ class KampMotor:
     # HALVTID
     # =========================================================================
     def _halvtid(self):
-        """AI-managerne vurderer taktiske endringer i pausen."""
+        """
+        Halvtidspause.
+        1. Ekstra in-game kondisjon-drop for akkumulert tretthet
+        2. AI-manager vurderer taktikk og bytter
+        3. Sonestyrker beregnes på nytt for 2. omgang
+        """
         for lag in [self._hjemme, self._borte]:
+            for spiller in lag.aktive_spillere:
+                if hasattr(spiller, 'oppdater_in_game_kondisjon'):
+                    # Ekstra halvtids-drop: mer for spillere med lav utholdenhet
+                    spiller.oppdater_in_game_kondisjon(HALVTID_EKSTRA_DROP)
+
             ny_taktikk = hent_taktisk_respons(
                 mentalitet=lag.taktikk.mentalitet,
                 hjemme_maal=self.resultat.hjemme_maal,
@@ -575,18 +621,22 @@ class KampMotor:
             if ny_taktikk and ny_taktikk != lag.taktikk.navn:
                 lag.gjør_taktisk_bytte(ny_taktikk)
 
-            # Planlagte bytter ved høy trøtthet
-            self._gjør_trøtthets_bytte(lag)
+            # Bytter: AI sjekker in_game_kondisjon, ikke bare trøtthet-dict
+            self._gjør_kondisjon_bytte(lag)
 
-    def _gjør_trøtthets_bytte(self, lag: LagTilstand):
-        """Bytter ut spillere over trøtthet-grensen hvis bytter gjenstår."""
+    def _gjør_kondisjon_bytte(self, lag: LagTilstand):
+        """
+        AI bytter ut spillere med lav in-game kondisjon.
+        Grense: under 60% kondisjon ved halvtid → byttes.
+        Simulerer naturlig squad rotation og beskyttelse av spillere.
+        """
         if lag.bytter_brukt >= lag.maks_bytter:
             return
         for spiller in list(lag.aktive_spillere):
             if lag.bytter_brukt >= lag.maks_bytter:
                 break
-            trøtthet = lag.trøtthet.get(id(spiller), 0)
-            if trøtthet >= TRETTHET_GRENSE:
+            ingame = getattr(spiller, 'in_game_kondisjon', 100.0)
+            if ingame < SKADE_KONDISJON_TERSKEL:
                 innbytter = lag.finn_innbytter()
                 if innbytter:
                     lag.aktive_spillere.remove(spiller)
@@ -599,8 +649,30 @@ class KampMotor:
                         type="bytte",
                         lag=lag_str,
                         spiller=innbytter,
-                        detalj=f"Inn for {getattr(spiller, 'etternavn', '?')}",
+                        detalj=f"Inn for {getattr(spiller, 'etternavn', '?')} (tretthet)",
                     ))
+
+    # =========================================================================
+    # SLUTTSPILL — oppdater persistent kondisjon etter kampen
+    # =========================================================================
+    def _sluttspill(self):
+        """
+        Kalles etter 90 minutter (eller ekstraomganger).
+        Trekker fra persistent kondisjon basert på minutter spilt.
+        """
+        for lag in [self._hjemme, self._borte]:
+            for spiller in lag.aktive_spillere:
+                if hasattr(spiller, 'spill_kamp_minutter'):
+                    spiller.spill_kamp_minutter(90)
+            for spiller, minutter in self._hent_innbytter_minutter(lag):
+                if hasattr(spiller, 'spill_kamp_minutter'):
+                    spiller.spill_kamp_minutter(minutter)
+
+    def _hent_innbytter_minutter(self, lag: LagTilstand) -> list[tuple]:
+        """Returnerer (spiller, minutter) for innbyttere basert på byttetidspunkt."""
+        # Forenklet: innbyttere antas å spille 45 minutter i snitt
+        return [(s, 45) for s in lag.utbyttede_spillere
+                if s not in lag.aktive_spillere]
 
     # =========================================================================
     # EKSTRAOMGANGER (CUP)
