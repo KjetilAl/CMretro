@@ -9,6 +9,25 @@ MIDTPUNKT = 10.5
 PRESS_BOOST_SJANSE = 0.20
 UTAALMODIGHET_GRENSE = 12
 
+# Fysikk-konstanter
+KONDISJON_START         = 100.0
+KONDISJON_KAMP_GRENSE   = 85.0   # Under dette bør AI ikke starte spilleren
+KONDISJON_KRITISK       = 60.0   # Under dette: dobbel skaderisiko i kamp
+RESTITUSJON_MIN         = 5.0    # % per dag ved utholdenhet 1
+RESTITUSJON_MAX         = 15.0   # % per dag ved utholdenhet 20
+KONDISJON_KOST_MIN      = 15.0   # % ved 90 min og utholdenhet 20
+KONDISJON_KOST_MAKS     = 35.0   # % ved 90 min og utholdenhet 1
+
+# Skadetyper med varighet i dager
+SKADETYPER = [
+    ("Strekk",          (7,  14), 0.45),   # (navn, (min_dager, maks_dager), sannsynlighet)
+    ("Muskelskade",     (14, 28), 0.25),
+    ("Forstuing",       (5,  10), 0.15),
+    ("Brudd",           (28, 60), 0.05),
+    ("Hjernerystelse",  (7,  21), 0.05),
+    ("Sårskade",        (3,   7), 0.05),
+]
+
 # Rykte-ord: (negativt_ord, positivt_ord) for hver skjult attributt
 RYKTE_ORD = {
     "_lojalitet":      ("Illojal",        "Lojal"),
@@ -173,6 +192,107 @@ class Person:
         """Sikrer at alle skjulte attributter er innenfor 1–20 etter en hendelse."""
         for navn in RYKTE_ORD:
             self._sett_attributt(navn, getattr(self, navn))
+
+    # -------------------------------------------------------------------------
+    # FYSIKK — kondisjon og skader
+    # -------------------------------------------------------------------------
+    def hvil_en_dag(self):
+        """Kalles av kalender.py hver dag. Bygger opp kondisjon gradvis."""
+        if self.skadet:
+            self.skade_dager_igjen -= 1
+            if self.skade_dager_igjen <= 0:
+                self.skadet = False
+                self.skade_type = None
+                self.skade_dager_igjen = 0
+                # Friskmeldt spiller starter på 60% kondisjon
+                self.kondisjon = max(self.kondisjon, 60.0)
+            return   # Skadet spiller restituerer ikke kondisjon normalt
+
+        if self.kondisjon < KONDISJON_START:
+            # Restitusjon: 5% ved utholdenhet 1, 15% ved utholdenhet 20
+            restitusjon = RESTITUSJON_MIN + (
+                (self.utholdenhet - 1) / (SKALA_MAX - 1)
+                * (RESTITUSJON_MAX - RESTITUSJON_MIN)
+            )
+            self.kondisjon = min(KONDISJON_START, self.kondisjon + restitusjon)
+
+    def spill_kamp_minutter(self, minutter: float):
+        """
+        Kalles av kampmotor etter kampslutt.
+        Trekker fra persistent kondisjon basert på minutter spilt og utholdenhet.
+        En spiller med utholdenhet 20 mister 15% på 90 min.
+        En spiller med utholdenhet 1 mister 35% på 90 min.
+        """
+        andel = minutter / 90.0
+        kost = andel * (
+            KONDISJON_KOST_MAKS - (
+                (self.utholdenhet - 1) / (SKALA_MAX - 1)
+                * (KONDISJON_KOST_MAKS - KONDISJON_KOST_MIN)
+            )
+        )
+        self.kondisjon = max(0.0, self.kondisjon - kost)
+
+    def tilbakestill_in_game_kondisjon(self):
+        """Kalles av kampmotor ved kampstart. Setter in-game til persistent kondisjon."""
+        self.in_game_kondisjon = self.kondisjon
+
+    def oppdater_in_game_kondisjon(self, tretthet_drop: float):
+        """
+        Kalles av kampmotor hvert intervall og ved halvtid.
+        In-game kondisjon faller raskere for spillere med lav utholdenhet.
+        """
+        justert_drop = tretthet_drop * (1.0 - (self.utholdenhet / (SKALA_MAX * 2)))
+        self.in_game_kondisjon = max(0.0, self.in_game_kondisjon - justert_drop)
+
+    @property
+    def effektiv_ferdighet(self) -> float:
+        """
+        Returnerer ferdighetsjustert for in-game kondisjon.
+        En spiller med ferdighet 20 og 50% kondisjon presterer som ferdighet 10.
+        Skadet spiller kan ikke spille.
+        """
+        if self.skadet:
+            return 0.0
+        ferdighet = getattr(self, 'ferdighet', 10)
+        return ferdighet * (self.in_game_kondisjon / 100.0)
+
+    @property
+    def er_spilleklar(self) -> bool:
+        """Returnerer True hvis spilleren er frisk og over kondisjongrensen."""
+        return not self.skadet and self.kondisjon >= KONDISJON_KAMP_GRENSE
+
+    @property
+    def skaderisiko_multiplikator(self) -> float:
+        """
+        Returnerer en multiplikator for skaderisiko basert på in-game kondisjon.
+        Under 60%: dobbel risiko. Under 40%: tredobbel.
+        """
+        if self.in_game_kondisjon < 40.0:
+            return 3.0
+        elif self.in_game_kondisjon < KONDISJON_KRITISK:
+            return 2.0
+        return 1.0
+
+    def paadrа_skade(self, skade_type: str = None, dager: int = None):
+        """
+        Setter spilleren som skadet.
+        Kalles av kampmotor ved skadehendelse.
+        """
+        import random as _random
+        if skade_type is None:
+            # Trekk skadetype vektet etter sannsynlighet
+            typer   = [s[0] for s in SKADETYPER]
+            vekter  = [s[2] for s in SKADETYPER]
+            skade_type = _random.choices(typer, weights=vekter, k=1)[0]
+
+        if dager is None:
+            varighet = next(s[1] for s in SKADETYPER if s[0] == skade_type)
+            dager = _random.randint(*varighet)
+
+        self.skadet            = True
+        self.skade_type        = skade_type
+        self.skade_dager_igjen = dager
+        self.kondisjon         = max(0.0, self.kondisjon - 20.0)
 
     # -------------------------------------------------------------------------
     # ATTRIBUTTDRIFT — hendelser påvirker personligheten over tid
