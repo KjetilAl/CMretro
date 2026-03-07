@@ -21,7 +21,8 @@ P_SKADE              = 0.008       # Per intervall per lag
 P_STRAFFE            = 0.015       # Per intervall ved sjanse
 # In-game kondisjon-drop per halvtid (5-minutters intervall)
 INGAME_DROP_PER_INTERVALL = 2.5    # Grunnverdi, justeres av utholdenhet
-HALVTID_EKSTRA_DROP       = 5.0    # Ekstra drop ved halvtid (akkumulert tretthet)
+HALVTID_RESTITUSJON_MIN = 10.0   # % ved utholdenhet 1
+HALVTID_RESTITUSJON_MAX = 20.0   # % ved utholdenhet 20
 SKADE_KONDISJON_TERSKEL   = 60.0   # Under dette: forhøyet skaderisiko
 
 MAAL_TYPER = [
@@ -606,6 +607,17 @@ class KampMotor:
         2. AI-manager vurderer taktikk og bytter
         3. Sonestyrker beregnes på nytt for 2. omgang
         """
+        for spiller in lag.aktive_spillere:
+            if hasattr(spiller, 'utholdenhet'):
+                restitusjon = HALVTID_RESTITUSJON_MIN + (
+                    (spiller.utholdenhet - 1) / 19
+                    * (HALVTID_RESTITUSJON_MAX - HALVTID_RESTITUSJON_MIN)
+                )
+                spiller.in_game_kondisjon = min(
+                    spiller.kondisjon,   # Kan ikke overstige persistent kondisjon
+                    spiller.in_game_kondisjon + restitusjon
+                )
+                
         for lag in [self._hjemme, self._borte]:
             for spiller in lag.aktive_spillere:
                 if hasattr(spiller, 'oppdater_in_game_kondisjon'):
