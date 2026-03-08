@@ -618,20 +618,34 @@ class Person:
 
 def lag_spiller(
     id: str,
-    fornavn: str,
-    etternavn: str,
-    alder: int,
     posisjon: Posisjon,
     ovr_mål: int = 10,
     variasjon: int = 3,
     potensial: Optional[int] = None,
+    alder: Optional[int] = None,
+    fornavn: Optional[str] = None,
+    etternavn: Optional[str] = None,
 ) -> Person:
     """
     Genererer en spiller med tilfeldige men realistiske attributter
     sentrert rundt ovr_mål ± variasjon, tilpasset posisjonen.
 
+    Navn trekkes automatisk fra navn.py-bankene hvis ikke oppgitt.
     potensial: hvis None settes det til ovr_mål + 0–4 (unge spillere kan vokse)
     """
+    # Navn — trekk fra bank hvis ikke eksplisitt gitt
+    if fornavn is None or etternavn is None:
+        from navn import trekk_navn
+        trukket_f, trukket_e = trekk_navn()
+        if fornavn is None:
+            fornavn = trukket_f
+        if etternavn is None:
+            etternavn = trukket_e
+
+    # Alder — realistisk fordeling rundt 24
+    if alder is None:
+        alder = max(17, min(36, int(random.gauss(24, 4))))
+
     vekter = _OVR_VEKTER.get(posisjon, _OVR_FALLBACK)
 
     attrs: dict[str, int] = {}
