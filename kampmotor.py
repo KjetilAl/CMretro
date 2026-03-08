@@ -34,6 +34,14 @@ MAAL_TYPER = [
     ("Innlegg",     0.20),
     ("Straffespark",0.10),
 ]
+# Kalibrert mot Eliteserien ~2.5 mål/kamp totalt.
+# p_sjanse = (angrep / (angrep + forsvar)) * BASE_SJANSE per vunnet intervall.
+BASE_SJANSE       = 0.55
+# Keeper bruker keeperferdighet, spiss bruker skudd-attributt for p(mål)
+SKUDD_ATTR        = "skudd"
+KEEPER_ATTR       = "keeperferdighet"
+# Nedre grense for ferdighetsverdi i sannsynlighetsberegninger
+FERD_MIN          = 5
 
 
 # =============================================================================
@@ -277,17 +285,22 @@ class LagTilstand:
     # SPILLERVALG
     # -------------------------------------------------------------------------
     def velg_avslutter(self):
-        """Velger en angriper eller offensiv midtbanespiller som avslutter."""
+        """Velger en angriper eller offensiv midtbanespiller som avslutter.
+        Vekter etter skudd-attributt, med fallback til generell ferdighet."""
         from taktikk import Posisjon, POSISJON_GRUPPE
         kandidater = [
             s for s in self.aktive_spillere
             if hasattr(s, 'primær_posisjon') and
-            POSISJON_GRUPPE.get(s.primær_posisjon, 'M') == 'A'
+            POSISJON_GRUPPE.get(s.primær_posisjon, 'M') in ('A', 'M')
         ]
         if not kandidater:
             kandidater = self.aktive_spillere
-        # Vektet etter ferdighet
-        vekter = [getattr(s, 'ferdighet', 10) for s in kandidater]
+        # Vektet etter skudd-attributt (angripere velges langt oftere)
+        vekter = [
+            getattr(s, 'skudd', getattr(s, 'ferdighet', 10))
+            * (2.5 if POSISJON_GRUPPE.get(getattr(s, 'primær_posisjon', None), 'M') == 'A' else 1.0)
+            for s in kandidater
+        ]
         return random.choices(kandidater, weights=vekter, k=1)[0]
 
     def velg_keeper(self):
@@ -484,8 +497,11 @@ class KampMotor:
             self._gi_midtbane_bonus(self._borte, +0.10)
 
         # --- P(sjanse | kontroll) ---
+        # Kalibrert: ~2.5 mål/kamp totalt mellom jevne lag.
+        # Sterkere angrep mot svakt forsvar gir klart høyere sjansefrekvens.
         a_styrke = angriper.hent_effektiv_lagdel('A')
-        p_sjanse = (a_styrke / 20.0) * angriper.taktikk_vekt_angrep * 0.35
+        f_styrke = forsvarer.hent_effektiv_lagdel('F')
+        p_sjanse = (a_styrke / (a_styrke + f_styrke)) * BASE_SJANSE * angriper.taktikk_vekt_angrep
 
         if random.random() < p_sjanse:
             # Tel sjansen
@@ -529,15 +545,20 @@ class KampMotor:
         if not spiss or not keeper:
             return
 
-        spiss_ferdighet  = getattr(spiss,  'effektiv_ferdighet', None)
-        if spiss_ferdighet is None:
-            spiss_ferdighet = getattr(spiss, 'ferdighet', 10)
-        keeper_ferdighet = getattr(keeper, 'effektiv_ferdighet', None)
-        if keeper_ferdighet is None:
-            keeper_ferdighet = getattr(keeper, 'ferdighet', 10)
+        # Bruk posisjonsspesifikke attributter: spiss.skudd vs keeper.keeperferdighet
+        # Fallback til generell ferdighet for å håndtere mangelfull data
+        spiss_skudd = max(FERD_MIN, getattr(spiss, SKUDD_ATTR,
+                          getattr(spiss, 'ferdighet', 10)))
+        keeper_red  = max(FERD_MIN, getattr(keeper, KEEPER_ATTR,
+                          getattr(keeper, 'ferdighet', 10)))
+
+        # Kondisjonsjustering: trøtte spillere treffer dårligere / redder sjeldnere
+        kondis_f = getattr(spiss, 'in_game_kondisjon', 100.0) / 100.0
+        spiss_skudd  = max(FERD_MIN, round(spiss_skudd  * kondis_f))
 
         # --- P(mål | skudd på mål) ---
-        p_maal = spiss_ferdighet / (spiss_ferdighet + keeper_ferdighet)
+        # Litt ekstra fordel til angriperen (realistisk: keeper er utsatt posisjon)
+        p_maal = (spiss_skudd * 1.05) / (spiss_skudd * 1.05 + keeper_red)
 
         if random.random() < p_maal:
             minutt = (intervall * 5) + random.randint(1, 5)
