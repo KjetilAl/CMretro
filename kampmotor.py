@@ -5,6 +5,7 @@ from taktikk import (
     TAKTIKK_KATALOG, Oppstilling, Formasjon,
     hent_matchup_modifikator, hent_taktisk_respons,
 )
+from person import SKALA_MAX
 
 # =============================================================================
 # KONSTANTER
@@ -177,7 +178,7 @@ class KampResultat:
             return self.borte_navn
         return None
 
-    def print_kamprapport(self):
+    def print_kamprapport(self, hjemme_spillere=None, borte_spillere=None):
         print(f"\n{'='*55}")
         print(f"  {self.hjemme_navn:<20}  {self.hjemme_maal} – "
               f"{self.borte_maal}  {self.borte_navn}")
@@ -190,7 +191,9 @@ class KampResultat:
             for h in sorted(self.hendelser, key=lambda x: x.minutt):
                 print(h)
         print()
-        self.statistikk.print()
+        self.statistikk.print_kampsammendrag(self.hjemme_navn, self.borte_navn, self.hjemme_maal, self.borte_maal)
+        if hjemme_spillere is not None and borte_spillere is not None:
+            self.statistikk.print_spillerbors(hjemme_spillere, borte_spillere, self.hjemme_navn, self.borte_navn)
         print(f"{'='*55}\n")
 
 
@@ -295,7 +298,7 @@ class LagTilstand:
                 return s
         return self.aktive_spillere[0] if self.aktive_spillere else None
 
-    def velg_kortkandidат(self) -> Optional[object]:
+    def velg_kortkandidat(self) -> Optional[object]:
         """Velger en tilfeldig utespiller (ikke keeper) for kort/skade."""
         kandidater = [
             s for s in self.aktive_spillere
@@ -402,13 +405,6 @@ class KampMotor:
         self._hjemme = LagTilstand(hjemme_klubb, hjemme_oppstilling, er_hjemmelag=True)
         self._borte  = LagTilstand(borte_klubb,  borte_oppstilling,  er_hjemmelag=False)
 
-        # Tilbakestill in-game kondisjon og initialiser spillerbørs
-        for lag in [self._hjemme, self._borte]:
-            for spiller in lag.aktive_spillere:
-                if hasattr(spiller, 'tilbakestill_in_game_kondisjon'):
-                    spiller.tilbakestill_in_game_kondisjon()
-                self.resultat.statistikk.initialiser_spiller(spiller)
-
         hjemme_navn = getattr(hjemme_klubb, 'navn', str(hjemme_klubb))
         borte_navn  = getattr(borte_klubb,  'navn', str(borte_klubb))
 
@@ -417,6 +413,13 @@ class KampMotor:
             borte_navn=borte_navn,
             statistikk=KampStatistikk(),
         )
+
+        # Tilbakestill in-game kondisjon og initialiser spillerbørs
+        for lag in [self._hjemme, self._borte]:
+            for spiller in lag.aktive_spillere:
+                if hasattr(spiller, 'tilbakestill_in_game_kondisjon'):
+                    spiller.tilbakestill_in_game_kondisjon()
+                self.resultat.statistikk.initialiser_spiller(spiller)
 
         # Hent matchup-modifikatorer
         hjemme_mod, borte_mod = hent_matchup_modifikator(
@@ -624,7 +627,7 @@ class KampMotor:
 
             # Gult kort
             if random.random() < P_GULT_KORT:
-                spiller = lag.velg_kortkandidаt()
+                spiller = lag.velg_kortkandidat()
                 if spiller:
                     if lag.er_hjemmelag:
                         self.resultat.statistikk.gule_kort_hjemme += 1
@@ -638,7 +641,7 @@ class KampMotor:
 
             # Rødt kort
             if random.random() < P_RØDT_KORT:
-                spiller = lag.velg_kortkandidаt()
+                spiller = lag.velg_kortkandidat()
                 if spiller and lag.gi_rødt_kort(spiller):
                     if lag.er_hjemmelag:
                         self.resultat.statistikk.røde_kort_hjemme += 1
@@ -663,7 +666,7 @@ class KampMotor:
                     for s in kritiske
                 )
             if random.random() < P_SKADE * skade_multiplikator:
-                spiller = lag.velg_kortkandidаt()
+                spiller = lag.velg_kortkandidat()
                 if spiller:
                     # Påfør skaden med type og varighet
                     if hasattr(spiller, 'paadra_skade'):

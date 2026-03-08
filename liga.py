@@ -387,7 +387,7 @@ class LigaSystem:
     # DIREKTE OPPRYKK OG NEDRYKK
     # Kjøres rett etter siste serierunde, før kvalifiseringskampene
     # =========================================================================
-def gjennomfoer_direkte_opp_nedrykk(self):
+    def gjennomfoer_direkte_opp_nedrykk(self):
         print("\n" + "="*60)
         print("  DIREKTE OPPRYKK OG NEDRYKK")
         print("="*60)
