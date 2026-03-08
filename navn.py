@@ -56,7 +56,7 @@ ETTERNAVN_NORSK = [
     "Pettersen", "Rasmussen", "Rønning", "Svendsen", "Sørensen",
     "Thomsen", "Thorsen", "Wilhelmsen",
     # Stedsnavn-etternavn
-    "Berg", "Berge", "Bakke", "Bø", "Dal",
+    "Almås", "Berg", "Berge", "Bakke", "Bø", "Dal",
     "Dalen", "Eid", "Fjeld", "Hagen", "Haug",
     "Holm", "Holt", "Ås", "Aas", "Ask",
     "Brekke", "Buvik", "Bye", "Dale", "Elven",
