@@ -18,7 +18,7 @@ from kalender     import SpillKalender, KalenderHendelse
 from kampmotor    import KampMotor, LagTilstand
 from hendelser    import HendelsesManager
 from taktikk      import TAKTIKK_KATALOG, Oppstilling, Posisjon, POSISJON_GRUPPE
-from liga         import LigaSystem, opprett_ligasystem
+from liga         import LigaSystem, opprett_ligasystem, populer_ligasystem_fra_db
 from person       import Person
 
 # =============================================================================
@@ -99,7 +99,7 @@ class TroppBuilder:
     Foreslår automatisk, men lar spilleren overstyre.
     """
 
-    def __init__(self, klubb, formasjon_navn: str = "4-3-3 (Offensiv)"):
+    def __init__(self, klubb, formasjon_navn: str = "4-3-3"):
         self.klubb         = klubb
         self.formasjon_navn = formasjon_navn
         self.startellever: list[Person] = []   # Indeks 0–10
@@ -270,10 +270,25 @@ class Spillmotor:
         # Bygg ligasystem
         print("\n  Setter opp ligasystemet...")
         self.liga = opprett_ligasystem()
+        populer_ligasystem_fra_db(self.liga, list(self.klubber.values()))
 
         # Bygg kalender
         self.kalender = SpillKalender(start_aar=SESONG_AAR)
         self.hendelser.sett_dato(datetime.date(SESONG_AAR, 1, 1))
+
+        kombinert_terminliste = [[] for _ in range(len(self.liga.eliteserien.terminliste))]
+        for r in range(len(self.liga.eliteserien.terminliste)):
+            kombinert_terminliste[r].extend(self.liga.eliteserien.terminliste[r])
+            if r < len(self.liga.obos.terminliste):
+                kombinert_terminliste[r].extend(self.liga.obos.terminliste[r])
+            for avd in self.liga.div_2:
+                if r < len(avd.terminliste):
+                    kombinert_terminliste[r].extend(avd.terminliste[r])
+            for avd in self.liga.div_3:
+                if r < len(avd.terminliste):
+                    kombinert_terminliste[r].extend(avd.terminliste[r])
+
+        self.kalender.populer_serierunder(kombinert_terminliste)
 
         print(f"  ✓ Kalender klar")
         _vent("\n  [Trykk Enter for å begynne sesongen]")
@@ -423,7 +438,7 @@ class Spillmotor:
             return
         print(f"\n  {dato.strftime('%d.%m')} — Andre resultater:")
         for k in andre[:6]:
-            print(f"    {k.hjemme.kortnamn} {k.hjemme_maal}–{k.borte_maal} {k.borte.kortnamn}")
+            print(f"    {k.hjemme.kortnavn} {k.hjemme_maal}–{k.borte_maal} {k.borte.kortnavn}")
         if len(andre) > 6:
             print(f"    ... og {len(andre)-6} til")
         _vent()

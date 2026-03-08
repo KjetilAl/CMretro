@@ -191,6 +191,13 @@ def _generer_spiller(
     potensial_bonus = max(0, (25 - alder) // 2) + random.randint(0, 3)
     potensial = min(20, round(snitt_ferdighet + potensial_bonus))
 
+    global _id_teller
+    if not spiller_id:
+        _id_teller += 1
+        sid = f"gen_{_id_teller}"
+    else:
+        sid = spiller_id
+
     return {
         "id": sid,
         "fornavn": fornavn,
@@ -280,12 +287,7 @@ def _bygg_person(d: dict, klubb: Klubb, sesong_aar: int) -> Person:
     )
 
     primær_pos = Posisjon[d["primær_posisjon"]]
-    rolle = SpillerRolle(
-        start_aar  = sesong_aar - random.randint(0, 3),
-        klubb      = klubb,
-        posisjon   = primær_pos,
-        ferdighet  = d["ferdighet"],
-    )
+    rolle = SpillerRolle()
     # Sekundærposisjon lagres direkte på Person for bruk i taktikk
     if d.get("sekundær_posisjon"):
         person.sekundær_posisjon = Posisjon[d["sekundær_posisjon"]]
@@ -293,8 +295,7 @@ def _bygg_person(d: dict, klubb: Klubb, sesong_aar: int) -> Person:
         person.sekundær_posisjon = None
 
     person.primær_posisjon = primær_pos
-    person.ferdighet       = d["ferdighet"]
-    person.legg_til_rolle(rolle)
+    person.sett_rolle(rolle)
     return person
 
 
@@ -335,7 +336,7 @@ def _bygg_klubb(d: dict) -> Klubb:
         farger                  = d.get("farger", ["Blå", "Hvit"]),
         stadion                 = stadion,
         divisjon                = divisjon,
-        budsjett                = budsjett,
+        saldo                   = budsjett,
         ukentlig_loennsbudsjett = lønn,
         gjeld                   = int(budsjett * 0.15), # Liten startgjeld for realisme
         supporterbase           = supporterbase,
@@ -457,7 +458,7 @@ def hent_spilleklar_tropp(klubb: Klubb) -> list[Person]:
     return [s for s in klubb.spillerstall if getattr(s, 'er_spilleklar', True)]
 
 
-def foreslå_startellever(klubb: Klubb, formasjon_navn: str = "4-3-3 (Offensiv)") -> dict:
+def foreslå_startellever(klubb: Klubb, formasjon_navn: str = "4-3-3") -> dict:
     """
     Foreslår beste startellever basert på tilgjengelige spillere og formasjon.
     Returnerer { posisjon_slot → Person }.
