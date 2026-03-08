@@ -247,12 +247,45 @@ class Avdeling:
             rad_borte.registrer_resultat(kamp.borte_maal, kamp.hjemme_maal)
 
     def generer_terminliste(self):
-        """Genererer en enkel dobbeltrunde-terminliste (alle mot alle, hjemme og borte)."""
-        self.terminliste = []
-        for i, hjemme in enumerate(self.lag):
-            for j, borte in enumerate(self.lag):
-                if i != j:
-                    self.terminliste.append(Kamp(hjemme, borte, kamp_type="serie"))
+        """Genererer en terminliste inndelt i runder vha. Circle Method."""
+        self.terminliste = [] # Nå en liste med lister (runder)
+        
+        if len(self.lag) % 2 != 0:
+            # Sikrer partall lag (kan skje hvis vi mangler lag i databasen)
+            self.lag.append(Klubb(id="bye", navn="Bye", kortnavn="BYE", divisjon=self.navn, 
+                                  budsjett=0, ukentlig_loennsbudsjett=0, gjeld=0, supporterbase=1, 
+                                  ambisjonsnivaa=1, historisk_suksess=1, intern_uro=1, okonomi_problem=1, 
+                                  grunnlagt_aar=1900, farger=[], stadion=None))
+            
+        lag_liste = list(self.lag)
+        antall_lag = len(lag_liste)
+        
+        # Første halvdel av sesongen
+        for runde in range(antall_lag - 1):
+            runde_kamper = []
+            for i in range(antall_lag // 2):
+                hjemme = lag_liste[i]
+                borte = lag_liste[antall_lag - 1 - i]
+                
+                # Ignorer "Bye"-kamper
+                if hjemme.id != "bye" and borte.id != "bye":
+                    # Annenhver runde bytter de på hvem som starter hjemme
+                    if i % 2 == 0 or (i == 0 and runde % 2 != 0):
+                        runde_kamper.append(Kamp(hjemme, borte, kamp_type="serie"))
+                    else:
+                        runde_kamper.append(Kamp(borte, hjemme, kamp_type="serie"))
+                        
+            self.terminliste.append(runde_kamper)
+            
+            # Roter lagene (Circle method: hold index 0 fast, roter resten)
+            lag_liste.insert(1, lag_liste.pop())
+            
+        # Andre halvdel av sesongen (snu hjemme/borte)
+        for runde in range(antall_lag - 1):
+            retur_runde = []
+            for kamp in self.terminliste[runde]:
+                retur_runde.append(Kamp(hjemme=kamp.borte, borte=kamp.hjemme, kamp_type="serie"))
+            self.terminliste.append(retur_runde)
 
     def print_tabell(self):
         self.sorter_tabell()
@@ -354,68 +387,60 @@ class LigaSystem:
     # DIREKTE OPPRYKK OG NEDRYKK
     # Kjøres rett etter siste serierunde, før kvalifiseringskampene
     # =========================================================================
-    def gjennomfoer_direkte_opp_nedrykk(self):
+def gjennomfoer_direkte_opp_nedrykk(self):
         print("\n" + "="*60)
         print("  DIREKTE OPPRYKK OG NEDRYKK")
         print("="*60)
 
+        # 1. IDENTIFISER ALLE LAG FØRST (Uten å flytte noe)
         self.eliteserien.sorter_tabell()
         self.obos.sorter_tabell()
+        
+        elite_ned = [self.eliteserien.tabell[14].klubb, self.eliteserien.tabell[15].klubb]
+        obos_opp  = [self.obos.tabell[0].klubb, self.obos.tabell[1].klubb]
+        
+        obos_ned = [self.obos.tabell[14].klubb, self.obos.tabell[15].klubb]
+        
+        div2_vinnere = []
+        div2_ned = []
         for avd in self.div_2:
             avd.sorter_tabell()
+            div2_vinnere.append(avd.tabell[0].klubb)
+            # Sikker indeksering: bunn 3 lag (indeks 11, 12, 13 for en 14-lags liga)
+            div2_ned.extend([(avd.tabell[i].klubb, avd) for i in [11, 12, 13]])
+
+        div3_vinnere = []
+        div3_ned = []
         for avd in self.div_3:
             avd.sorter_tabell()
+            div3_vinnere.append((avd.tabell[0].klubb, avd))
+            div3_ned.extend([(avd.tabell[i].klubb, avd) for i in [11, 12, 13]])
 
-        # --- ELITESERIEN ↔ OBOS ---
-        elite_ned = [self.eliteserien.hent_plass(15), self.eliteserien.hent_plass(16)]
-        obos_opp  = [self.obos.hent_plass(1), self.obos.hent_plass(2)]
+        # 2. TRIGGER HENDELSER
+        for lag in elite_ned + obos_ned + [l for l, a in div2_ned] + [l for l, a in div3_ned]:
+            lag.opplev_hendelse("nedrykk")
+            
+        for lag in obos_opp + div2_vinnere + [l for l, a in div3_vinnere]:
+            lag.opplev_hendelse("opprykk")
+            
+        self.eliteserien.tabell[0].klubb.opplev_hendelse("seriemester")
 
+        # 3. FLYTT LAGENE MELLOM AVDELINGER
+        # Elite <-> OBOS
         self._flytt_lag(elite_ned, fra=self.eliteserien, til=self.obos)
         self._flytt_lag(obos_opp,  fra=self.obos, til=self.eliteserien)
 
-        for lag in elite_ned: lag.opplev_hendelse("nedrykk")
-        for lag in obos_opp:  lag.opplev_hendelse("opprykk")
-        self.eliteserien.hent_plass(1) and self.eliteserien.tabell[0].klubb.opplev_hendelse("seriemester")
-
-        print(f"  Ned fra Eliteserien: {[l.navn for l in elite_ned]}")
-        print(f"  Opp til Eliteserien: {[l.navn for l in obos_opp]}")
-
-        # --- OBOS ↔ 2. DIVISJON ---
-        obos_ned     = [self.obos.hent_plass(15), self.obos.hent_plass(16)]
-        div2_vinnere = [avd.hent_plass(1) for avd in self.div_2]
-
+        # OBOS <-> Div 2
         self.obos.fjern_lag(obos_ned)
         for lag in obos_ned:
             maal_avd = self._geografisk_avdeling(lag, self.div_2, DIV2_SONE_TIL_AVD)
             maal_avd.legg_til_lag([lag])
-            lag.opplev_hendelse("nedrykk")
 
         for i, vinner in enumerate(div2_vinnere):
             self.div_2[i].fjern_lag([vinner])
             self.obos.legg_til_lag([vinner])
-            vinner.opplev_hendelse("opprykk")
 
-        print(f"  Ned fra OBOS:        {[l.navn for l in obos_ned]}")
-        print(f"  Opp til OBOS:        {[l.navn for l in div2_vinnere]}")
-
-        # --- 2. DIVISJON ↔ 3. DIVISJON ---
-        # Bunn 3 i hver 2. div-avdeling ned (6 lag), vinnere av 3. div opp (6 lag)
-        div2_ned     = []
-        div3_vinnere = []
-
-        for avd in self.div_2:
-            for plass in [12, 13, 14]:
-                lag = avd.hent_plass(plass)
-                if lag:
-                    div2_ned.append((lag, avd))
-                    lag.opplev_hendelse("nedrykk")
-
-        for avd in self.div_3:
-            vinner = avd.hent_plass(1)
-            if vinner:
-                div3_vinnere.append((vinner, avd))
-                vinner.opplev_hendelse("opprykk")
-
+        # Div 2 <-> Div 3
         for lag, fra_avd in div2_ned:
             maal_avd = self._geografisk_avdeling(lag, self.div_3, DIV3_SONE_TIL_AVD)
             fra_avd.fjern_lag([lag])
@@ -426,15 +451,16 @@ class LigaSystem:
             fra_avd.fjern_lag([vinner])
             maal_avd.legg_til_lag([vinner])
 
-        # --- 3. DIVISJON → NON-LEAGUE ---
-        # Bunn 3 i hver av de 6 avdelingene forlater ligasystemet (18 lag)
-        for avd in self.div_3:
-            for plass in [12, 13, 14]:
-                lag = avd.hent_plass(plass)
-                if lag:
-                    avd.fjern_lag([lag])
-                    self.non_league.append(lag)
-                    print(f"  {lag.navn} forlater ligasystemet (non-league).")
+        # Div 3 -> Non-league
+        for lag, fra_avd in div3_ned:
+            fra_avd.fjern_lag([lag])
+            self.non_league.append(lag)
+
+        print(f"  Ned fra Eliteserien: {[l.navn for l in elite_ned]}")
+        print(f"  Opp til Eliteserien: {[l.navn for l in obos_opp]}")
+        print(f"  Ned fra OBOS:        {[l.navn for l in obos_ned]}")
+        print(f"  Opp til OBOS:        {[l.navn for l in div2_vinnere]}")
+        print(f"  Sendt til non-league: {len(div3_ned)} lag.")
 
     # =========================================================================
     # KVALIFISERINGSKAMPER
@@ -554,3 +580,31 @@ def opprett_ligasystem() -> LigaSystem:
         div_2=       Divisjon("2. divisjon", nivaa=3, antall_avdelinger=2),
         div_3=       Divisjon("3. divisjon", nivaa=4, antall_avdelinger=6),
     )
+
+def populer_ligasystem_fra_db(liga: LigaSystem, alle_klubber: list[Klubb]):
+    """Fordeler klubbene fra databasen inn i de riktige avdelingene."""
+    # Sorterer dem basert på database-feltet
+    elite = [k for k in alle_klubber if k.divisjon == "Eliteserien"]
+    obos  = [k for k in alle_klubber if k.divisjon == "OBOS-ligaen"]
+    div2  = [k for k in alle_klubber if k.divisjon == "PostNord-ligaen"]
+    div3  = [k for k in alle_klubber if k.divisjon == "Norsk Tipping-ligaen"]
+    
+    # Eliteserien & OBOS
+    liga.eliteserien.legg_til_lag(elite)
+    liga.obos.legg_til_lag(obos)
+    
+    # 2. Divisjon (To avdelinger basert på sone)
+    for lag in div2:
+        avd = liga._geografisk_avdeling(lag, liga.div_2, DIV2_SONE_TIL_AVD)
+        avd.legg_til_lag([lag])
+        
+    # 3. Divisjon (Seks avdelinger basert på sone)
+    for lag in div3:
+        avd = liga._geografisk_avdeling(lag, liga.div_3, DIV3_SONE_TIL_AVD)
+        avd.legg_til_lag([lag])
+        
+    # Generer terminlister for alle avdelinger
+    liga.eliteserien.generer_terminliste()
+    liga.obos.generer_terminliste()
+    for avd in liga.div_2: avd.generer_terminliste()
+    for avd in liga.div_3: avd.generer_terminliste()
