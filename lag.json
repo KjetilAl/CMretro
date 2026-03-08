@@ -16,7 +16,7 @@
   {
     "id": "rosenborg",
     "navn": "Rosenborg BK",
-    "kortnamn": "RBK",
+    "kortnavn": "RBK",
     "by": "Trondheim",
     "divisjon": "Eliteserien",
     "sone": null,
@@ -30,7 +30,7 @@
   {
     "id": "molde",
     "navn": "Molde FK",
-    "kortnamn": "MOL",
+    "kortnavn": "MOL",
     "by": "Molde",
     "divisjon": "Eliteserien",
     "sone": null,
@@ -44,7 +44,7 @@
   {
     "id": "brann",
     "navn": "SK Brann",
-    "kortnamn": "BRA",
+    "kortnavn": "BRA",
     "by": "Bergen",
     "divisjon": "Eliteserien",
     "sone": null,
@@ -58,7 +58,7 @@
   {
     "id": "viking",
     "navn": "Viking FK",
-    "kortnamn": "VIK",
+    "kortnavn": "VIK",
     "by": "Stavanger",
     "divisjon": "Eliteserien",
     "sone": null,
@@ -72,7 +72,7 @@
   {
     "id": "lillestrom",
     "navn": "Lillestrøm SK",
-    "kortnamn": "LSK",
+    "kortnavn": "LSK",
     "by": "Lillestrøm",
     "divisjon": "Eliteserien",
     "sone": null,
@@ -86,7 +86,7 @@
   {
     "id": "valerenga",
     "navn": "Vålerenga IF",
-    "kortnamn": "VIF",
+    "kortnavn": "VIF",
     "by": "Oslo",
     "divisjon": "Eliteserien",
     "sone": null,
@@ -100,7 +100,7 @@
   {
     "id": "fredrikstad",
     "navn": "Fredrikstad FK",
-    "kortnamn": "FFK",
+    "kortnavn": "FFK",
     "by": "Fredrikstad",
     "divisjon": "Eliteserien",
     "sone": null,
@@ -114,7 +114,7 @@
   {
     "id": "sarpsborg08",
     "navn": "Sarpsborg 08",
-    "kortnamn": "S08",
+    "kortnavn": "S08",
     "by": "Sarpsborg",
     "divisjon": "Eliteserien",
     "sone": null,
@@ -128,7 +128,7 @@
   {
     "id": "tromso",
     "navn": "Tromsø IL",
-    "kortnamn": "TIL",
+    "kortnavn": "TIL",
     "by": "Tromsø",
     "divisjon": "Eliteserien",
     "sone": null,
@@ -142,7 +142,7 @@
   {
     "id": "aalesund",
     "navn": "Aalesunds FK",
-    "kortnamn": "AAF",
+    "kortnavn": "AAF",
     "by": "Ålesund",
     "divisjon": "Eliteserien",
     "sone": null,
@@ -156,7 +156,7 @@
   {
     "id": "start",
     "navn": "IK Start",
-    "kortnamn": "STA",
+    "kortnavn": "STA",
     "by": "Kristiansand",
     "divisjon": "Eliteserien",
     "sone": null,
@@ -170,7 +170,7 @@
   {
     "id": "hamkam",
     "navn": "Hamarkameratene",
-    "kortnamn": "HAM",
+    "kortnavn": "HAM",
     "by": "Hamar",
     "divisjon": "Eliteserien",
     "sone": null,
@@ -184,7 +184,7 @@
   {
     "id": "kristiansund",
     "navn": "Kristiansund BK",
-    "kortnamn": "KBK",
+    "kortnavn": "KBK",
     "by": "Kristiansund",
     "divisjon": "Eliteserien",
     "sone": null,
@@ -198,7 +198,7 @@
   {
     "id": "sandefjord",
     "navn": "Sandefjord Fotball",
-    "kortnamn": "SAN",
+    "kortnavn": "SAN",
     "by": "Sandefjord",
     "divisjon": "Eliteserien",
     "sone": null,
@@ -212,7 +212,7 @@
   {
     "id": "kfum",
     "navn": "KFUM Oslo",
-    "kortnamn": "KFU",
+    "kortnavn": "KFU",
     "by": "Oslo",
     "divisjon": "Eliteserien",
     "sone": null,
@@ -226,7 +226,7 @@
   {
     "id": "odd",
     "navn": "Odds Ballklubb",
-    "kortnamn": "ODD",
+    "kortnavn": "ODD",
     "by": "Skien",
     "divisjon": "OBOS-ligaen",
     "sone": null,
@@ -240,7 +240,7 @@
   {
     "id": "stromsgodset",
     "navn": "Strømsgodset IF",
-    "kortnamn": "GOD",
+    "kortnavn": "GOD",
     "by": "Drammen",
     "divisjon": "OBOS-ligaen",
     "sone": null,
@@ -254,7 +254,7 @@
   {
     "id": "haugesund",
     "navn": "FK Haugesund",
-    "kortnamn": "HAU",
+    "kortnavn": "HAU",
     "by": "Haugesund",
     "divisjon": "OBOS-ligaen",
     "sone": null,
@@ -268,7 +268,7 @@
   {
     "id": "lyn",
     "navn": "Lyn 1896 FK",
-    "kortnamn": "LYN",
+    "kortnavn": "LYN",
     "by": "Oslo",
     "divisjon": "OBOS-ligaen",
     "sone": null,
@@ -282,7 +282,7 @@
   {
     "id": "stabaek",
     "navn": "Stabæk Fotball",
-    "kortnamn": "STB",
+    "kortnavn": "STB",
     "by": "Bærum",
     "divisjon": "OBOS-ligaen",
     "sone": null,
@@ -296,7 +296,7 @@
   {
     "id": "sogndal",
     "navn": "Sogndal Fotball",
-    "kortnamn": "SOG",
+    "kortnavn": "SOG",
     "by": "Sogndal",
     "divisjon": "OBOS-ligaen",
     "sone": null,
@@ -310,7 +310,7 @@
   {
     "id": "sandnesulf",
     "navn": "Sandnes Ulf",
-    "kortnamn": "ULF",
+    "kortnavn": "ULF",
     "by": "Sandnes",
     "divisjon": "OBOS-ligaen",
     "sone": null,
@@ -324,7 +324,7 @@
   {
     "id": "kongsvinger",
     "navn": "Kongsvinger IL",
-    "kortnamn": "KIL",
+    "kortnavn": "KIL",
     "by": "Kongsvinger",
     "divisjon": "OBOS-ligaen",
     "sone": null,
@@ -338,7 +338,7 @@
   {
     "id": "bryne",
     "navn": "Bryne FK",
-    "kortnamn": "BRY",
+    "kortnavn": "BRY",
     "by": "Bryne",
     "divisjon": "OBOS-ligaen",
     "sone": null,
@@ -352,7 +352,7 @@
   {
     "id": "hodd",
     "navn": "IL Hødd",
-    "kortnamn": "HOD",
+    "kortnavn": "HOD",
     "by": "Ulsteinvik",
     "divisjon": "OBOS-ligaen",
     "sone": null,
@@ -366,7 +366,7 @@
   {
     "id": "asane",
     "navn": "Åsane Fotball",
-    "kortnamn": "ASA",
+    "kortnavn": "ASA",
     "by": "Bergen",
     "divisjon": "OBOS-ligaen",
     "sone": null,
@@ -380,7 +380,7 @@
   {
     "id": "moss",
     "navn": "Moss FK",
-    "kortnamn": "MOS",
+    "kortnavn": "MOS",
     "by": "Moss",
     "divisjon": "OBOS-ligaen",
     "sone": null,
@@ -394,7 +394,7 @@
   {
     "id": "ranheim",
     "navn": "Ranheim IL",
-    "kortnamn": "RAN",
+    "kortnavn": "RAN",
     "by": "Trondheim",
     "divisjon": "OBOS-ligaen",
     "sone": null,
@@ -408,7 +408,7 @@
   {
     "id": "raufoss",
     "navn": "Raufoss Fotball",
-    "kortnamn": "RAU",
+    "kortnavn": "RAU",
     "by": "Raufoss",
     "divisjon": "OBOS-ligaen",
     "sone": null,
@@ -422,7 +422,7 @@
   {
     "id": "strommen",
     "navn": "Strømmen IF",
-    "kortnamn": "STR",
+    "kortnavn": "STR",
     "by": "Strømmen",
     "divisjon": "OBOS-ligaen",
     "sone": null,
@@ -436,7 +436,7 @@
   {
     "id": "egersund",
     "navn": "Egersunds IK",
-    "kortnamn": "EIK",
+    "kortnavn": "EIK",
     "by": "Egersund",
     "divisjon": "OBOS-ligaen",
     "sone": null,
@@ -450,7 +450,7 @@
   {
     "id": "mjondalen",
     "navn": "Mjøndalen IF",
-    "kortnamn": "MIF",
+    "kortnavn": "MIF",
     "by": "Mjøndalen",
     "divisjon": "PostNord-ligaen",
     "sone": 1,
@@ -464,7 +464,7 @@
   {
     "id": "jerv",
     "navn": "FK Jerv",
-    "kortnamn": "JER",
+    "kortnavn": "JER",
     "by": "Grimstad",
     "divisjon": "PostNord-ligaen",
     "sone": 1,
@@ -478,7 +478,7 @@
   {
     "id": "arendal",
     "navn": "Arendal Fotball",
-    "kortnamn": "ARE",
+    "kortnavn": "ARE",
     "by": "Arendal",
     "divisjon": "PostNord-ligaen",
     "sone": 1,
@@ -492,7 +492,7 @@
   {
     "id": "eiktonsberg",
     "navn": "FK Eik Tønsberg",
-    "kortnamn": "EIK",
+    "kortnavn": "EIK",
     "by": "Tønsberg",
     "divisjon": "PostNord-ligaen",
     "sone": 1,
@@ -506,7 +506,7 @@
   {
     "id": "pors",
     "navn": "Pors Fotball",
-    "kortnamn": "POR",
+    "kortnavn": "POR",
     "by": "Porsgrunn",
     "divisjon": "PostNord-ligaen",
     "sone": 1,
@@ -520,7 +520,7 @@
   {
     "id": "kvikhalden",
     "navn": "Kvik Halden FK",
-    "kortnamn": "KVI",
+    "kortnavn": "KVI",
     "by": "Halden",
     "divisjon": "PostNord-ligaen",
     "sone": 1,
@@ -534,7 +534,7 @@
   {
     "id": "notodden",
     "navn": "Notodden FK",
-    "kortnamn": "NOT",
+    "kortnavn": "NOT",
     "by": "Notodden",
     "divisjon": "PostNord-ligaen",
     "sone": 1,
@@ -548,7 +548,7 @@
   {
     "id": "brattvag",
     "navn": "Brattvåg IL",
-    "kortnamn": "BRA",
+    "kortnavn": "BRA",
     "by": "Brattvåg",
     "divisjon": "PostNord-ligaen",
     "sone": 1,
@@ -561,7 +561,7 @@
   {
     "id": "vidar",
     "navn": "FK Vidar",
-    "kortnamn": "VID",
+    "kortnavn": "VID",
     "by": "Stavanger",
     "divisjon": "PostNord-ligaen",
     "sone": 1,
@@ -575,7 +575,7 @@
   {
     "id": "sotra",
     "navn": "Sotra SK",
-    "kortnamn": "SOT",
+    "kortnavn": "SOT",
     "by": "Straume",
     "divisjon": "PostNord-ligaen",
     "sone": 1,
@@ -589,7 +589,7 @@
   {
     "id": "lysekloster",
     "navn": "Lysekloster IL",
-    "kortnamn": "LYS",
+    "kortnavn": "LYS",
     "by": "Os",
     "divisjon": "PostNord-ligaen",
     "sone": 1,
@@ -603,7 +603,7 @@
   {
     "id": "sandviken",
     "navn": "IL Sandviken",
-    "kortnamn": "SAN",
+    "kortnavn": "SAN",
     "by": "Bergen",
     "divisjon": "PostNord-ligaen",
     "sone": 1,
@@ -617,7 +617,7 @@
   {
     "id": "bjarg",
     "navn": "IL Bjarg",
-    "kortnamn": "BJA",
+    "kortnavn": "BJA",
     "by": "Bergen",
     "divisjon": "PostNord-ligaen",
     "sone": 1,
@@ -631,7 +631,7 @@
   {
     "id": "traeff",
     "navn": "SK Træff",
-    "kortnamn": "TRA",
+    "kortnavn": "TRA",
     "by": "Molde",
     "divisjon": "PostNord-ligaen",
     "sone": 1,
@@ -645,7 +645,7 @@
   {
     "id": "skeid",
     "navn": "Skeid",
-    "kortnamn": "SKE",
+    "kortnavn": "SKE",
     "by": "Oslo",
     "divisjon": "PostNord-ligaen",
     "sone": 2,
@@ -659,7 +659,7 @@
   {
     "id": "ullkisa",
     "navn": "Ullensaker/Kisa IL",
-    "kortnamn": "ULL",
+    "kortnavn": "ULL",
     "by": "Jessheim",
     "divisjon": "PostNord-ligaen",
     "sone": 2,
@@ -673,7 +673,7 @@
   {
     "id": "levanger",
     "navn": "Levanger FK",
-    "kortnamn": "LEV",
+    "kortnavn": "LEV",
     "by": "Levanger",
     "divisjon": "PostNord-ligaen",
     "sone": 2,
@@ -687,7 +687,7 @@
   {
     "id": "kjelsas",
     "navn": "Kjelsås IL",
-    "kortnamn": "KJE",
+    "kortnavn": "KJE",
     "by": "Oslo",
     "divisjon": "PostNord-ligaen",
     "sone": 2,
@@ -701,7 +701,7 @@
   {
     "id": "grorud",
     "navn": "Grorud IL",
-    "kortnamn": "GRO",
+    "kortnavn": "GRO",
     "by": "Oslo",
     "divisjon": "PostNord-ligaen",
     "sone": 2,
@@ -715,7 +715,7 @@
   {
     "id": "tromsdalen",
     "navn": "Tromsdalen UIL",
-    "kortnamn": "TUI",
+    "kortnavn": "TUI",
     "by": "Tromsø",
     "divisjon": "PostNord-ligaen",
     "sone": 2,
@@ -729,7 +729,7 @@
   {
     "id": "stjordalsblink",
     "navn": "Stjørdals-Blink",
-    "kortnamn": "STJ",
+    "kortnavn": "STJ",
     "by": "Stjørdal",
     "divisjon": "PostNord-ligaen",
     "sone": 2,
@@ -743,7 +743,7 @@
   {
     "id": "eidsvoldturn",
     "navn": "Eidsvold Turn",
-    "kortnamn": "EID",
+    "kortnavn": "EID",
     "by": "Eidsvoll",
     "divisjon": "PostNord-ligaen",
     "sone": 2,
@@ -757,7 +757,7 @@
   {
     "id": "honefoss",
     "navn": "Hønefoss BK",
-    "kortnamn": "HON",
+    "kortnavn": "HON",
     "by": "Hønefoss",
     "divisjon": "PostNord-ligaen",
     "sone": 2,
@@ -771,7 +771,7 @@
   {
     "id": "follo",
     "navn": "Follo FK",
-    "kortnamn": "FOL",
+    "kortnavn": "FOL",
     "by": "Ski",
     "divisjon": "PostNord-ligaen",
     "sone": 2,
@@ -785,7 +785,7 @@
   {
     "id": "rana",
     "navn": "Rana FK",
-    "kortnamn": "RAN",
+    "kortnavn": "RAN",
     "by": "Mo i Rana",
     "divisjon": "PostNord-ligaen",
     "sone": 2,
@@ -799,7 +799,7 @@
   {
     "id": "junkeren",
     "navn": "IK Junkeren",
-    "kortnamn": "JUN",
+    "kortnavn": "JUN",
     "by": "Bodø",
     "divisjon": "PostNord-ligaen",
     "sone": 2,
@@ -813,7 +813,7 @@
   {
     "id": "lorenskog",
     "navn": "Lørenskog IF",
-    "kortnamn": "LOR",
+    "kortnavn": "LOR",
     "by": "Lørenskog",
     "divisjon": "PostNord-ligaen",
     "sone": 2,
@@ -827,7 +827,7 @@
   {
     "id": "trygglade",
     "navn": "SK Trygg/Lade",
-    "kortnamn": "TRY",
+    "kortnavn": "TRY",
     "by": "Trondheim",
     "divisjon": "PostNord-ligaen",
     "sone": 2,
@@ -841,7 +841,7 @@
   {
     "id": "asker",
     "navn": "Asker Fotball",
-    "kortnamn": "ASK",
+    "kortnavn": "ASK",
     "by": "Asker",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 1,
@@ -855,7 +855,7 @@
   {
     "id": "baerum",
     "navn": "Bærum SK",
-    "kortnamn": "BSK",
+    "kortnavn": "BSK",
     "by": "Bærum",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 1,
@@ -869,7 +869,7 @@
   {
     "id": "frigg",
     "navn": "Frigg Oslo FK",
-    "kortnamn": "FRI",
+    "kortnavn": "FRI",
     "by": "Oslo",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 1,
@@ -883,7 +883,7 @@
   {
     "id": "gamleoslo",
     "navn": "FC Gamle Oslo",
-    "kortnamn": "FGO",
+    "kortnavn": "FGO",
     "by": "Oslo",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 1,
@@ -897,7 +897,7 @@
   {
     "id": "grei",
     "navn": "SF Grei",
-    "kortnamn": "GRE",
+    "kortnavn": "GRE",
     "by": "Oslo",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 1,
@@ -911,7 +911,7 @@
   {
     "id": "heming",
     "navn": "IL Heming",
-    "kortnamn": "HEM",
+    "kortnavn": "HEM",
     "by": "Oslo",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 1,
@@ -925,7 +925,7 @@
   {
     "id": "kfum2",
     "navn": "KFUM Oslo 2",
-    "kortnamn": "KF2",
+    "kortnavn": "KF2",
     "by": "Oslo",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 1,
@@ -933,13 +933,13 @@
     "stadion_kapasitet": 1500,
     "stadion_standard": 2,
     "stadion_byggeaar": 2023,
-    "rivaler":,
+    "rivaler": [],
     "historisk_styrke": 3
   },
   {
     "id": "konnerud",
     "navn": "Konnerud IL",
-    "kortnamn": "KON",
+    "kortnavn": "KON",
     "by": "Drammen",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 1,
@@ -953,7 +953,7 @@
   {
     "id": "lokomotivoslo",
     "navn": "Lokomotiv Oslo",
-    "kortnamn": "LOK",
+    "kortnavn": "LOK",
     "by": "Oslo",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 1,
@@ -961,13 +961,13 @@
     "stadion_kapasitet": 1000,
     "stadion_standard": 1,
     "stadion_byggeaar": 1968,
-    "rivaler":,
+    "rivaler": [],
     "historisk_styrke": 5
   },
   {
     "id": "nordstrand",
     "navn": "Nordstrand IF",
-    "kortnamn": "NOR",
+    "kortnavn": "NOR",
     "by": "Oslo",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 1,
@@ -981,7 +981,7 @@
   {
     "id": "ready",
     "navn": "IF Ready",
-    "kortnamn": "REA",
+    "kortnavn": "REA",
     "by": "Oslo",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 1,
@@ -995,7 +995,7 @@
   {
     "id": "ullern",
     "navn": "Ullern IF",
-    "kortnamn": "ULN",
+    "kortnavn": "ULN",
     "by": "Oslo",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 1,
@@ -1009,7 +1009,7 @@
   {
     "id": "unioncarlberner",
     "navn": "Union Carl Berner",
-    "kortnamn": "UCB",
+    "kortnavn": "UCB",
     "by": "Oslo",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 1,
@@ -1023,7 +1023,7 @@
   {
     "id": "valerenga2",
     "navn": "Vålerenga 2",
-    "kortnamn": "VI2",
+    "kortnavn": "VI2",
     "by": "Oslo",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 1,
@@ -1031,13 +1031,13 @@
     "stadion_kapasitet": 16555,
     "stadion_standard": 5,
     "stadion_byggeaar": 2017,
-    "rivaler":,
+    "rivaler": [],
     "historisk_styrke": 4
   },
   {
     "id": "byasen",
     "navn": "Byåsen TF",
-    "kortnamn": "BYA",
+    "kortnavn": "BYA",
     "by": "Trondheim",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 2,
@@ -1051,7 +1051,7 @@
   {
     "id": "kvik",
     "navn": "FK Kvik",
-    "kortnamn": "FKK",
+    "kortnavn": "FKK",
     "by": "Trondheim",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 2,
@@ -1065,7 +1065,7 @@
   {
     "id": "melhus",
     "navn": "Melhus IL",
-    "kortnamn": "MEL",
+    "kortnavn": "MEL",
     "by": "Melhus",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 2,
@@ -1079,7 +1079,7 @@
   {
     "id": "nardo",
     "navn": "Nardo FK",
-    "kortnamn": "NAR",
+    "kortnavn": "NAR",
     "by": "Trondheim",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 2,
@@ -1093,7 +1093,7 @@
   {
     "id": "ntnui",
     "navn": "NTNUI Fotball",
-    "kortnamn": "NTN",
+    "kortnavn": "NTN",
     "by": "Trondheim",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 2,
@@ -1101,13 +1101,13 @@
     "stadion_kapasitet": 1000,
     "stadion_standard": 1,
     "stadion_byggeaar": 2000,
-    "rivaler":,
+    "rivaler": [],
     "historisk_styrke": 4
   },
   {
     "id": "orkla",
     "navn": "Orkla FK",
-    "kortnamn": "ORK",
+    "kortnavn": "ORK",
     "by": "Orkland",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 2,
@@ -1121,7 +1121,7 @@
   {
     "id": "ranheim2",
     "navn": "Ranheim 2",
-    "kortnamn": "RA2",
+    "kortnavn": "RA2",
     "by": "Trondheim",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 2,
@@ -1129,13 +1129,13 @@
     "stadion_kapasitet": 3000,
     "stadion_standard": 3,
     "stadion_byggeaar": 2010,
-    "rivaler":,
+    "rivaler": [],
     "historisk_styrke": 3
   },
   {
     "id": "rosenborg2",
     "navn": "Rosenborg 2",
-    "kortnamn": "RB2",
+    "kortnavn": "RB2",
     "by": "Trondheim",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 2,
@@ -1143,13 +1143,13 @@
     "stadion_kapasitet": 1000,
     "stadion_standard": 2,
     "stadion_byggeaar": 2005,
-    "rivaler":,
+    "rivaler": [],
     "historisk_styrke": 5
   },
   {
     "id": "strindheim",
     "navn": "Strindheim TF",
-    "kortnamn": "STR",
+    "kortnavn": "STR",
     "by": "Trondheim",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 2,
@@ -1163,7 +1163,7 @@
   {
     "id": "herd",
     "navn": "SK Herd",
-    "kortnamn": "HER",
+    "kortnavn": "HER",
     "by": "Ålesund",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 2,
@@ -1177,7 +1177,7 @@
   {
     "id": "spjelkavik",
     "navn": "Spjelkavik IL",
-    "kortnamn": "SPJ",
+    "kortnavn": "SPJ",
     "by": "Ålesund",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 2,
@@ -1191,7 +1191,7 @@
   {
     "id": "aalesund2",
     "navn": "Aalesund 2",
-    "kortnamn": "AA2",
+    "kortnavn": "AA2",
     "by": "Ålesund",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 2,
@@ -1199,13 +1199,13 @@
     "stadion_kapasitet": 10778,
     "stadion_standard": 4,
     "stadion_byggeaar": 2005,
-    "rivaler":,
+    "rivaler": [],
     "historisk_styrke": 4
   },
   {
     "id": "molde2",
     "navn": "Molde 2",
-    "kortnamn": "MO2",
+    "kortnavn": "MO2",
     "by": "Molde",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 2,
@@ -1213,13 +1213,13 @@
     "stadion_kapasitet": 11800,
     "stadion_standard": 4,
     "stadion_byggeaar": 1998,
-    "rivaler":,
+    "rivaler": [],
     "historisk_styrke": 4
   },
   {
     "id": "volda",
     "navn": "Volda TI",
-    "kortnamn": "VOL",
+    "kortnavn": "VOL",
     "by": "Volda",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 2,
@@ -1233,7 +1233,7 @@
   {
     "id": "askoy",
     "navn": "Askøy FK",
-    "kortnamn": "ASK",
+    "kortnavn": "ASK",
     "by": "Askøy",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 3,
@@ -1247,7 +1247,7 @@
   {
     "id": "austevoll",
     "navn": "Austevoll IK",
-    "kortnamn": "AUS",
+    "kortnavn": "AUS",
     "by": "Austevoll",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 3,
@@ -1261,7 +1261,7 @@
   {
     "id": "brann2",
     "navn": "Brann 2",
-    "kortnamn": "BR2",
+    "kortnavn": "BR2",
     "by": "Bergen",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 3,
@@ -1269,13 +1269,13 @@
     "stadion_kapasitet": 3500,
     "stadion_standard": 2,
     "stadion_byggeaar": 1990,
-    "rivaler":,
+    "rivaler": [],
     "historisk_styrke": 4
   },
   {
     "id": "djerv1919",
     "navn": "SK Djerv 1919",
-    "kortnamn": "DJE",
+    "kortnavn": "DJE",
     "by": "Haugesund",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 3,
@@ -1289,7 +1289,7 @@
   {
     "id": "fana",
     "navn": "Fana IL",
-    "kortnamn": "FAN",
+    "kortnavn": "FAN",
     "by": "Bergen",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 3,
@@ -1303,7 +1303,7 @@
   {
     "id": "fyllingsdalen",
     "navn": "FK Fyllingsdalen",
-    "kortnamn": "FYL",
+    "kortnavn": "FYL",
     "by": "Bergen",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 3,
@@ -1317,7 +1317,7 @@
   {
     "id": "forde",
     "navn": "Førde IL",
-    "kortnamn": "FOR",
+    "kortnavn": "FOR",
     "by": "Sunnfjord",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 3,
@@ -1331,7 +1331,7 @@
   {
     "id": "gneist",
     "navn": "IL Gneist",
-    "kortnamn": "GNE",
+    "kortnavn": "GNE",
     "by": "Bergen",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 3,
@@ -1345,7 +1345,7 @@
   {
     "id": "os",
     "navn": "Os TF",
-    "kortnamn": "OST",
+    "kortnavn": "OST",
     "by": "Bjørnafjorden",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 3,
@@ -1359,7 +1359,7 @@
   {
     "id": "sogndal2",
     "navn": "Sogndal 2",
-    "kortnamn": "SO2",
+    "kortnavn": "SO2",
     "by": "Sogndal",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 3,
@@ -1367,13 +1367,13 @@
     "stadion_kapasitet": 5622,
     "stadion_standard": 3,
     "stadion_byggeaar": 2006,
-    "rivaler":,
+    "rivaler": [],
     "historisk_styrke": 3
   },
   {
     "id": "stord",
     "navn": "Stord Fotball",
-    "kortnamn": "STO",
+    "kortnavn": "STO",
     "by": "Stord",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 3,
@@ -1387,7 +1387,7 @@
   {
     "id": "vardhaugesund",
     "navn": "Vard Haugesund",
-    "kortnamn": "VAR",
+    "kortnavn": "VAR",
     "by": "Haugesund",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 3,
@@ -1401,7 +1401,7 @@
   {
     "id": "varegg",
     "navn": "Varegg Fotball",
-    "kortnamn": "VRG",
+    "kortnavn": "VRG",
     "by": "Bergen",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 3,
@@ -1415,7 +1415,7 @@
   {
     "id": "asane2",
     "navn": "Åsane 2",
-    "kortnamn": "AS2",
+    "kortnavn": "AS2",
     "by": "Bergen",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 3,
@@ -1423,13 +1423,13 @@
     "stadion_kapasitet": 3500,
     "stadion_standard": 3,
     "stadion_byggeaar": 2021,
-    "rivaler":,
+    "rivaler": [],
     "historisk_styrke": 3
   },
   {
     "id": "brodd",
     "navn": "IL Brodd",
-    "kortnamn": "BRO",
+    "kortnavn": "BRO",
     "by": "Stavanger",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 4,
@@ -1443,7 +1443,7 @@
   {
     "id": "floy",
     "navn": "Fløy",
-    "kortnamn": "FLO",
+    "kortnavn": "FLO",
     "by": "Kristiansand",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 4,
@@ -1457,7 +1457,7 @@
   {
     "id": "haugesund2",
     "navn": "Haugesund 2",
-    "kortnamn": "HA2",
+    "kortnavn": "HA2",
     "by": "Haugesund",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 4,
@@ -1465,13 +1465,13 @@
     "stadion_kapasitet": 1000,
     "stadion_standard": 1,
     "stadion_byggeaar": 1990,
-    "rivaler":,
+    "rivaler": [],
     "historisk_styrke": 3
   },
   {
     "id": "hinna",
     "navn": "Hinna Fotball",
-    "kortnamn": "HIN",
+    "kortnavn": "HIN",
     "by": "Stavanger",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 4,
@@ -1485,7 +1485,7 @@
   {
     "id": "madla",
     "navn": "Madla IL",
-    "kortnamn": "MAD",
+    "kortnavn": "MAD",
     "by": "Stavanger",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 4,
@@ -1499,7 +1499,7 @@
   {
     "id": "mandalskameratene",
     "navn": "Mandalskameratene",
-    "kortnamn": "MK",
+    "kortnavn": "MK",
     "by": "Mandal",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 4,
@@ -1513,7 +1513,7 @@
   {
     "id": "odd2",
     "navn": "Odd 2",
-    "kortnamn": "OD2",
+    "kortnavn": "OD2",
     "by": "Skien",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 4,
@@ -1521,13 +1521,13 @@
     "stadion_kapasitet": 11767,
     "stadion_standard": 4,
     "stadion_byggeaar": 2007,
-    "rivaler":,
+    "rivaler": [],
     "historisk_styrke": 4
   },
   {
     "id": "stabaek2",
     "navn": "Stabæk 2",
-    "kortnamn": "ST2",
+    "kortnavn": "ST2",
     "by": "Bærum",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 4,
@@ -1535,13 +1535,13 @@
     "stadion_kapasitet": 1000,
     "stadion_standard": 1,
     "stadion_byggeaar": 2000,
-    "rivaler":,
+    "rivaler": [],
     "historisk_styrke": 4
   },
   {
     "id": "staaljorpeland",
     "navn": "Staal Jørpeland",
-    "kortnamn": "STA",
+    "kortnavn": "STA",
     "by": "Strand",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 4,
@@ -1555,7 +1555,7 @@
   {
     "id": "varhaug",
     "navn": "Varhaug IL",
-    "kortnamn": "VRH",
+    "kortnavn": "VRH",
     "by": "Hå",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 4,
@@ -1569,7 +1569,7 @@
   {
     "id": "viking2",
     "navn": "Viking 2",
-    "kortnamn": "VI2",
+    "kortnavn": "VI2",
     "by": "Stavanger",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 4,
@@ -1577,13 +1577,13 @@
     "stadion_kapasitet": 15900,
     "stadion_standard": 5,
     "stadion_byggeaar": 2004,
-    "rivaler":,
+    "rivaler": [],
     "historisk_styrke": 5
   },
   {
     "id": "vindbjart",
     "navn": "Vindbjart FK",
-    "kortnamn": "VIN",
+    "kortnavn": "VIN",
     "by": "Vennesla",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 4,
@@ -1597,7 +1597,7 @@
   {
     "id": "vag",
     "navn": "Våg FK",
-    "kortnamn": "VAG",
+    "kortnavn": "VAG",
     "by": "Kristiansand",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 4,
@@ -1611,7 +1611,7 @@
   {
     "id": "akra",
     "navn": "Åkra IL",
-    "kortnamn": "AKR",
+    "kortnavn": "AKR",
     "by": "Karmøy",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 4,
@@ -1625,7 +1625,7 @@
   {
     "id": "alta",
     "navn": "Alta IF",
-    "kortnamn": "ALT",
+    "kortnavn": "ALT",
     "by": "Alta",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 5,
@@ -1639,7 +1639,7 @@
   {
     "id": "bossekop",
     "navn": "Bossekop UL",
-    "kortnamn": "BOS",
+    "kortnavn": "BOS",
     "by": "Alta",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 5,
@@ -1653,7 +1653,7 @@
   {
     "id": "fauskesprint",
     "navn": "Fauske/Sprint",
-    "kortnamn": "FAU",
+    "kortnavn": "FAU",
     "by": "Fauske",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 5,
@@ -1667,7 +1667,7 @@
   {
     "id": "finnsnes",
     "navn": "Finnsnes IL",
-    "kortnamn": "FIN",
+    "kortnavn": "FIN",
     "by": "Senja",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 5,
@@ -1681,7 +1681,7 @@
   {
     "id": "floya",
     "navn": "IF Fløya",
-    "kortnamn": "FLY",
+    "kortnavn": "FLY",
     "by": "Tromsø",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 5,
@@ -1695,7 +1695,7 @@
   {
     "id": "harstad",
     "navn": "Harstad IL",
-    "kortnamn": "HAR",
+    "kortnavn": "HAR",
     "by": "Harstad",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 5,
@@ -1709,7 +1709,7 @@
   {
     "id": "kongsvinger2",
     "navn": "Kongsvinger 2",
-    "kortnamn": "KI2",
+    "kortnavn": "KI2",
     "by": "Kongsvinger",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 5,
@@ -1717,13 +1717,13 @@
     "stadion_kapasitet": 5824,
     "stadion_standard": 3,
     "stadion_byggeaar": 1953,
-    "rivaler":,
+    "rivaler": [],
     "historisk_styrke": 3
   },
   {
     "id": "lillestrom2",
     "navn": "Lillestrøm 2",
-    "kortnamn": "LS2",
+    "kortnavn": "LS2",
     "by": "Lillestrøm",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 5,
@@ -1731,13 +1731,13 @@
     "stadion_kapasitet": 1500,
     "stadion_standard": 2,
     "stadion_byggeaar": 2007,
-    "rivaler":,
+    "rivaler": [],
     "historisk_styrke": 4
   },
   {
     "id": "skedsmo",
     "navn": "Skedsmo FK",
-    "kortnamn": "SKE",
+    "kortnavn": "SKE",
     "by": "Lillestrøm",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 5,
@@ -1751,7 +1751,7 @@
   {
     "id": "skjervoy",
     "navn": "Skjervøy IK",
-    "kortnamn": "SKJ",
+    "kortnavn": "SKJ",
     "by": "Skjervøy",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 5,
@@ -1765,7 +1765,7 @@
   {
     "id": "skjetten",
     "navn": "Skjetten Fotball",
-    "kortnamn": "SKT",
+    "kortnavn": "SKT",
     "by": "Lillestrøm",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 5,
@@ -1779,7 +1779,7 @@
   {
     "id": "stromsgodset2",
     "navn": "Strømsgodset 2",
-    "kortnamn": "GO2",
+    "kortnavn": "GO2",
     "by": "Drammen",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 5,
@@ -1787,13 +1787,13 @@
     "stadion_kapasitet": 8935,
     "stadion_standard": 4,
     "stadion_byggeaar": 1924,
-    "rivaler":,
+    "rivaler": [],
     "historisk_styrke": 4
   },
   {
     "id": "tromso2",
     "navn": "Tromsø 2",
-    "kortnamn": "TI2",
+    "kortnavn": "TI2",
     "by": "Tromsø",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 5,
@@ -1801,13 +1801,13 @@
     "stadion_kapasitet": 7599,
     "stadion_standard": 4,
     "stadion_byggeaar": 1987,
-    "rivaler":,
+    "rivaler": [],
     "historisk_styrke": 4
   },
   {
     "id": "ulfstind",
     "navn": "IL Ulfstind",
-    "kortnamn": "ULF",
+    "kortnavn": "ULF",
     "by": "Tromsø",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 5,
@@ -1821,7 +1821,7 @@
   {
     "id": "bjorkelangen",
     "navn": "Bjørkelangen SF",
-    "kortnamn": "BJO",
+    "kortnavn": "BJO",
     "by": "Aurskog-Høland",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 6,
@@ -1835,7 +1835,7 @@
   {
     "id": "brumunddal",
     "navn": "Brumunddal Fotball",
-    "kortnamn": "BRU",
+    "kortnavn": "BRU",
     "by": "Ringsaker",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 6,
@@ -1849,7 +1849,7 @@
   {
     "id": "drobakfrogn",
     "navn": "Drøbak-Frogn",
-    "kortnamn": "DFI",
+    "kortnavn": "DFI",
     "by": "Frogn",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 6,
@@ -1863,7 +1863,7 @@
   {
     "id": "elverum",
     "navn": "Elverum Fotball",
-    "kortnamn": "ELV",
+    "kortnavn": "ELV",
     "by": "Elverum",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 6,
@@ -1877,7 +1877,7 @@
   {
     "id": "framlarvik",
     "navn": "IF Fram Larvik",
-    "kortnamn": "FRA",
+    "kortnavn": "FRA",
     "by": "Larvik",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 6,
@@ -1891,7 +1891,7 @@
   {
     "id": "gjoviklyn",
     "navn": "FK Gjøvik-Lyn",
-    "kortnamn": "GJO",
+    "kortnavn": "GJO",
     "by": "Gjøvik",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 6,
@@ -1905,7 +1905,7 @@
   {
     "id": "lillehammer",
     "navn": "Lillehammer FK",
-    "kortnamn": "LIL",
+    "kortnavn": "LIL",
     "by": "Lillehammer",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 6,
@@ -1919,7 +1919,7 @@
   {
     "id": "lyn2",
     "navn": "Lyn 2",
-    "kortnamn": "LY2",
+    "kortnavn": "LY2",
     "by": "Oslo",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 6,
@@ -1927,13 +1927,13 @@
     "stadion_kapasitet": 1000,
     "stadion_standard": 1,
     "stadion_byggeaar": 2000,
-    "rivaler":,
+    "rivaler": [],
     "historisk_styrke": 4
   },
   {
     "id": "oppsal",
     "navn": "Oppsal IF",
-    "kortnamn": "OPP",
+    "kortnavn": "OPP",
     "by": "Oslo",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 6,
@@ -1947,7 +1947,7 @@
   {
     "id": "ralingen",
     "navn": "Rælingen FK",
-    "kortnamn": "RAL",
+    "kortnavn": "RAL",
     "by": "Rælingen",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 6,
@@ -1961,7 +1961,7 @@
   {
     "id": "rade",
     "navn": "Råde IL",
-    "kortnamn": "RAD",
+    "kortnavn": "RAD",
     "by": "Råde",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 6,
@@ -1975,7 +1975,7 @@
   {
     "id": "sandefjord2",
     "navn": "Sandefjord 2",
-    "kortnamn": "SA2",
+    "kortnavn": "SA2",
     "by": "Sandefjord",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 6,
@@ -1983,13 +1983,13 @@
     "stadion_kapasitet": 2000,
     "stadion_standard": 2,
     "stadion_byggeaar": 1960,
-    "rivaler":,
+    "rivaler": [],
     "historisk_styrke": 3
   },
   {
     "id": "sarpsborg082",
     "navn": "Sarpsborg 08 2",
-    "kortnamn": "S82",
+    "kortnavn": "S82",
     "by": "Sarpsborg",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 6,
@@ -1997,13 +1997,13 @@
     "stadion_kapasitet": 8022,
     "stadion_standard": 4,
     "stadion_byggeaar": 1930,
-    "rivaler":,
+    "rivaler": [],
     "historisk_styrke": 3
   },
   {
     "id": "ornhorten",
     "navn": "Ørn Horten",
-    "kortnamn": "ORN",
+    "kortnavn": "ORN",
     "by": "Horten",
     "divisjon": "Norsk Tipping-ligaen",
     "sone": 6,
