@@ -1,333 +1,598 @@
+"""
+person.py  –  Norsk Football Manager '95
+Spillermodellen. Alle ferdigheter er på skalaen 1–20.
+"""
+
+from __future__ import annotations
+from dataclasses import dataclass, field
+from enum import Enum, auto
+from typing import Optional
 import random
 
-# =============================================================================
-# SPILLKONSTANTER
-# =============================================================================
-SKALA_MIN = 1
-SKALA_MAX = 20
-MIDTPUNKT = 10.5
-PRESS_BOOST_SJANSE = 0.20
-UTAALMODIGHET_GRENSE = 12
 
-# Fysikk-konstanter
-KONDISJON_START         = 100.0
-KONDISJON_KAMP_GRENSE   = 85.0   # Under dette bør AI ikke starte spilleren
-KONDISJON_KRITISK       = 60.0   # Under dette: dobbel skaderisiko i kamp
-RESTITUSJON_MIN         = 5.0    # % per dag ved utholdenhet 1
-RESTITUSJON_MAX         = 15.0   # % per dag ved utholdenhet 20
-KONDISJON_KOST_MIN      = 15.0   # % ved 90 min og utholdenhet 20
-KONDISJON_KOST_MAKS     = 35.0   # % ved 90 min og utholdenhet 1
+# ── Posisjoner ────────────────────────────────────────────────────────────────
 
-# Skadetyper med varighet i dager
-SKADETYPER = [
-    ("Strekk",          (7,  14), 0.45),   # (navn, (min_dager, maks_dager), sannsynlighet)
-    ("Muskelskade",     (14, 28), 0.25),
-    ("Forstuing",       (5,  10), 0.15),
-    ("Brudd",           (28, 60), 0.05),
-    ("Hjernerystelse",  (7,  21), 0.05),
-    ("Sårskade",        (3,   7), 0.05),
+class Posisjon(Enum):
+    # Keeper
+    K   = auto()
+    # Forsvar
+    MST = auto()   # Midtstopper
+    HB  = auto()   # Høyreback
+    VB  = auto()   # Venstrebak
+    # Midtbane
+    DM  = auto()   # Defensiv midtbane
+    SM  = auto()   # Sentral midtbane
+    OM  = auto()   # Offensiv midtbane
+    HVB = auto()   # Høyre vingback
+    VVB = auto()   # Venstre vingback
+    HV  = auto()   # Høyre vinge
+    VV  = auto()   # Venstre vinge
+    # Angrep
+    SP  = auto()   # Spiss
+    HA  = auto()   # Høyre angriper
+    VA  = auto()   # Venstre angriper
+
+
+# Hvilke posisjoner hører til hvilken linje
+FORSVAR   = {Posisjon.MST, Posisjon.HB,  Posisjon.VB}
+MIDTBANE  = {Posisjon.DM,  Posisjon.SM,  Posisjon.OM,
+             Posisjon.HVB, Posisjon.VVB, Posisjon.HV, Posisjon.VV}
+ANGREP    = {Posisjon.SP,  Posisjon.HA,  Posisjon.VA}
+
+
+# ── Skadetyper ────────────────────────────────────────────────────────────────
+
+class SkadeType(Enum):
+    INGEN        = "Ingen skade"
+    FORSTUING    = "Forstuing"
+    MUSKELSTREKK = "Muskelstrekk"
+    BRUDD        = "Brudd"
+    HJERNERYSTELSE = "Hjernerystelse"
+    KORSBANDSKADE  = "Korsbåndskade"
+
+
+SKADE_DAGER: dict[SkadeType, tuple[int, int]] = {
+    SkadeType.FORSTUING:      (3,  10),
+    SkadeType.MUSKELSTREKK:   (7,  21),
+    SkadeType.BRUDD:          (21, 60),
+    SkadeType.HJERNERYSTELSE: (5,  14),
+    SkadeType.KORSBANDSKADE:  (90, 270),
+}
+
+# Sannsynlighet for at en skade er av en gitt type (summerer til 1.0)
+SKADE_SANNSYNLIGHET: list[tuple[SkadeType, float]] = [
+    (SkadeType.FORSTUING,       0.40),
+    (SkadeType.MUSKELSTREKK,    0.30),
+    (SkadeType.BRUDD,           0.12),
+    (SkadeType.HJERNERYSTELSE,  0.10),
+    (SkadeType.KORSBANDSKADE,   0.08),
 ]
 
-# Rykte-ord: (negativt_ord, positivt_ord) for hver skjult attributt
-RYKTE_ORD = {
-    "_lojalitet":      ("Illojal",        "Lojal"),
-    "_egoisme":        ("Selvoppofrende", "Selvgod"),
-    "_presstoleranse": ("Nervøs",         "Jernvilje"),
-    "_arbeidsvilje":   ("Lat",            "Arbeidssom"),
+
+# ── Vektmatrisen for ferdighet per posisjon ───────────────────────────────────
+#
+# Hvert oppslag er en dict  {attributtnavn: vekt}.
+# OVR = sum(vekt * verdi) / sum(vekter)  →  garantert rettferdig sammenligning.
+
+_OVR_VEKTER: dict[Posisjon, dict[str, int]] = {
+    Posisjon.K: {
+        "keeperferdighet": 4,
+        "fysikk":          2,
+        "mentalitet":      2,
+        "pasning":         1,
+        "fart":            1,
+    },
+    Posisjon.MST: {
+        "takling":    4,
+        "hodespill":  3,
+        "fysikk":     2,
+        "fart":       1,
+        "pasning":    1,
+        "mentalitet": 1,
+    },
+    Posisjon.HB: {
+        "takling":   3,
+        "fart":      3,
+        "hodespill": 2,
+        "pasning":   2,
+        "fysikk":    1,
+        "dribling":  1,
+    },
+    Posisjon.VB: {
+        "takling":   3,
+        "fart":      3,
+        "hodespill": 2,
+        "pasning":   2,
+        "fysikk":    1,
+        "dribling":  1,
+    },
+    Posisjon.DM: {
+        "takling":      3,
+        "pasning":      3,
+        "utholdenhet":  2,
+        "fysikk":       2,
+        "mentalitet":   2,
+        "teknikk":      1,
+    },
+    Posisjon.SM: {
+        "pasning":     3,
+        "teknikk":     3,
+        "kreativitet": 2,
+        "utholdenhet": 2,
+        "takling":     1,
+        "fart":        1,
+    },
+    Posisjon.OM: {
+        "pasning":     3,
+        "kreativitet": 3,
+        "teknikk":     3,
+        "skudd":       2,
+        "dribling":    2,
+        "fart":        1,
+    },
+    Posisjon.HVB: {
+        "fart":      3,
+        "takling":   3,
+        "pasning":   2,
+        "utholdenhet": 2,
+        "dribling":  1,
+        "hodespill": 1,
+    },
+    Posisjon.VVB: {
+        "fart":      3,
+        "takling":   3,
+        "pasning":   2,
+        "utholdenhet": 2,
+        "dribling":  1,
+        "hodespill": 1,
+    },
+    Posisjon.HV: {
+        "fart":      4,
+        "dribling":  3,
+        "pasning":   2,
+        "teknikk":   2,
+        "skudd":     1,
+        "kreativitet": 1,
+    },
+    Posisjon.VV: {
+        "fart":      4,
+        "dribling":  3,
+        "pasning":   2,
+        "teknikk":   2,
+        "skudd":     1,
+        "kreativitet": 1,
+    },
+    Posisjon.SP: {
+        "skudd":     4,
+        "hodespill": 3,
+        "fart":      2,
+        "teknikk":   2,
+        "fysikk":    2,
+        "dribling":  1,
+    },
+    Posisjon.HA: {
+        "fart":      3,
+        "skudd":     3,
+        "dribling":  3,
+        "teknikk":   2,
+        "kreativitet": 2,
+        "pasning":   1,
+    },
+    Posisjon.VA: {
+        "fart":      3,
+        "skudd":     3,
+        "dribling":  3,
+        "teknikk":   2,
+        "kreativitet": 2,
+        "pasning":   1,
+    },
+}
+
+# Fallback for ukjent posisjon
+_OVR_FALLBACK: dict[str, int] = {
+    "pasning": 1, "takling": 1, "skudd": 1,
+    "fart": 1, "teknikk": 1,
 }
 
 
-# =============================================================================
-# ROLLE-KLASSENE
-# =============================================================================
-class Rolle:
-    """Baseklasse for alle roller en person kan ha i karrieren sin."""
+# ── Hjelpefunksjon: valider attributtverdi ────────────────────────────────────
 
-    def __init__(self, start_aar, klubb=None):
-        self.start_aar = start_aar
-        self.slutt_aar = None
-        self.klubb = klubb
-        self.er_aktiv = True
-
-    def avslutt_rolle(self, slutt_aar):
-        self.slutt_aar = slutt_aar
-        self.er_aktiv = False
-
-    def __repr__(self):
-        status = "aktiv" if self.er_aktiv else f"avsluttet {self.slutt_aar}"
-        return f"<{self.__class__.__name__}: {self.klubb} ({self.start_aar}–{status})>"
+def _sjekk_verdi(navn: str, verdi: int, min_v: int = 1, maks_v: int = 20) -> int:
+    if not isinstance(verdi, int):
+        raise TypeError(f"'{navn}' må være int, fikk {type(verdi).__name__}")
+    if not min_v <= verdi <= maks_v:
+        raise ValueError(f"'{navn}' må være {min_v}–{maks_v}, fikk {verdi}")
+    return verdi
 
 
-class SpillerRolle(Rolle):
-    """En persons karriere som aktiv fotballspiller."""
+_FERDIGHET_ATTRS = (
+    "skudd", "pasning", "dribling", "takling", "hodespill",
+    "teknikk", "dodball", "keeperferdighet",
+    "fart", "utholdenhet", "fysikk",
+    "kreativitet", "aggressivitet", "mentalitet",
+)
 
-    def __init__(self, start_aar, klubb, posisjon, ferdighet):
-        super().__init__(start_aar, klubb)
-        self.tittel = "Spiller"
-        self.posisjon = posisjon       # f.eks. "Keeper", "Midtstopper", "Kantspiller"
-        self.ferdighet = ferdighet     # 1-20, spillerens tekniske nivå
-
-
-class TrenerRolle(Rolle):
-    """Mellomsteget mellom spiller og manager."""
-
-    def __init__(self, start_aar, klubb, spesialitet, person):
-        super().__init__(start_aar, klubb)
-        self.tittel = "Trener"
-        self.spesialitet = spesialitet  # f.eks. "keepertrener", "fysisk", "taktikk"
-
-        har_spilt = any(isinstance(r, SpillerRolle) for r in person.karriere_historikk)
-        self.autoritet = 14 if har_spilt else 9
+_META_ATTRS = (
+    "lojalitet", "egoisme", "presstoleranse",
+    "arbeidsvilje", "potensial", "rykte",
+)
 
 
-class ManagerRolle(Rolle):
-    """Leder for et fotballag. Respekt i garderoben avhenger av karrierehistorikk."""
+# ── Person ────────────────────────────────────────────────────────────────────
 
-    def __init__(self, start_aar, klubb, foretrukket_taktikk, person):
-        super().__init__(start_aar, klubb)
-        self.tittel = "Manager"
-        self.foretrukket_taktikk = foretrukket_taktikk  # f.eks. "4-3-3", "5-3-2"
-
-        har_spilt = any(isinstance(r, SpillerRolle) for r in person.karriere_historikk)
-        spilt_for_samme_klubb = any(
-            isinstance(r, SpillerRolle) and r.klubb == klubb
-            for r in person.karriere_historikk
-        )
-
-        if spilt_for_samme_klubb:
-            self.respekt_i_garderoben = 18   # Klubblegende kommer hjem
-        elif har_spilt:
-            self.respekt_i_garderoben = 14   # Tidligere proffspiller
-        else:
-            self.respekt_i_garderoben = 8    # Teoretiker / journalist
-
-
-# =============================================================================
-# PERSON — GRUNNKLASSEN
-# =============================================================================
 class Person:
     """
-    Grunnklasse for alle mennesker i spillet: spillere, trenere, managere,
-    dommere, journalister, styremedlemmer, eiere, supporterledere m.fl.
+    Representerer en spillbar person (spiller eller trener).
 
-    Skjulte attributter (prefiks _) er ikke synlige for spilleren direkte,
-    men lekker ut gjennom hendelser og rykte.
+    Ferdigheter og meta-verdier er på skalaen 1–20.
+    Kondisjon og in_game_kondisjon er prosent (0.0–100.0).
     """
+
+    # ── Konstruktør ───────────────────────────────────────────────────────────
 
     def __init__(
         self,
-        id,
-        fornavn,
-        etternavn,
-        alder,
-        lojalitet,
-        egoisme,
-        presstoleranse,
-        arbeidsvilje,
+        id: str,
+        fornavn: str,
+        etternavn: str,
+        alder: int,
+        # Tekniske ferdigheter
+        skudd:           int = 10,
+        pasning:         int = 10,
+        dribling:        int = 10,
+        takling:         int = 10,
+        hodespill:       int = 10,
+        teknikk:         int = 10,
+        dodball:         int = 10,
+        keeperferdighet: int = 10,
+        # Fysiske ferdigheter
+        fart:            int = 10,
+        utholdenhet:     int = 10,
+        fysikk:          int = 10,
+        # Mentale ferdigheter
+        kreativitet:     int = 10,
+        aggressivitet:   int = 10,
+        mentalitet:      int = 10,
+        # Meta / skjulte verdier
+        lojalitet:       int = 10,   # Påvirker kontraktvilje og klubbtilhørighet
+        egoisme:         int = 10,   # Høy: skyter fremfor å passe; lav: lagorientert
+        presstoleranse:  int = 10,   # Prestasjon under press (cup-finaler, nedrykk)
+        arbeidsvilje:    int = 10,   # Treningsutbytte og kondisjonsnedgang
+        potensial:       int = 10,   # Maksimal mulig OVR (1–20)
+        rykte:           int = 10,   # Markedsverdi/kjennskap (1–20)
     ):
-        # --- Synlige basisattributter ---
-        self.id = id
-        self.fornavn = fornavn
+        # Identitet
+        self.id        = id
+        self.fornavn   = fornavn
         self.etternavn = etternavn
+
+        if not isinstance(alder, int) or not 15 <= alder <= 45:
+            raise ValueError(f"Alder må være 15–45, fikk {alder}")
         self.alder = alder
 
-        # --- Skjulte personlighetstrekk (1–20) ---
-        self._lojalitet = lojalitet
-        self._egoisme = egoisme
-        self._presstoleranse = presstoleranse
-        self._arbeidsvilje = arbeidsvilje
+        # Valider og sett ferdigheter
+        for navn, verdi in (
+            ("skudd",           skudd),
+            ("pasning",         pasning),
+            ("dribling",        dribling),
+            ("takling",         takling),
+            ("hodespill",       hodespill),
+            ("teknikk",         teknikk),
+            ("dodball",         dodball),
+            ("keeperferdighet", keeperferdighet),
+            ("fart",            fart),
+            ("utholdenhet",     utholdenhet),
+            ("fysikk",          fysikk),
+            ("kreativitet",     kreativitet),
+            ("aggressivitet",   aggressivitet),
+            ("mentalitet",      mentalitet),
+        ):
+            setattr(self, navn, _sjekk_verdi(navn, verdi))
 
-        # --- Karrieretidslinje ---
-        self.karriere_historikk = []
+        # Valider og sett meta-verdier
+        for navn, verdi in (
+            ("lojalitet",      lojalitet),
+            ("egoisme",        egoisme),
+            ("presstoleranse", presstoleranse),
+            ("arbeidsvilje",   arbeidsvilje),
+            ("potensial",      potensial),
+            ("rykte",          rykte),
+        ):
+            setattr(self, navn, _sjekk_verdi(navn, verdi))
 
-    # -------------------------------------------------------------------------
-    # KARRIERE
-    # -------------------------------------------------------------------------
-    def legg_til_rolle(self, ny_rolle):
-        """Legger til en ny rolle i karrierehistorikken."""
-        self.karriere_historikk.append(ny_rolle)
+        # Tilstand
+        self.kondisjon         = 100.0   # Sesongkondisjon (faller ved manglende hvile)
+        self.in_game_kondisjon = 100.0   # Kampkondisjon   (nullstilles etter kamp)
+        self.skadet            = False
+        self.skade_dager_igjen = 0
+        self.skade_type        = SkadeType.INGEN
 
-    def hent_naavaerende_rolle(self):
-        """Returnerer den aktive rollen, eller None hvis personen er uten rolle."""
-        if self.karriere_historikk and self.karriere_historikk[-1].er_aktiv:
-            return self.karriere_historikk[-1]
-        return None
+        # Posisjoner og roller
+        self.primær_posisjon:    Optional[Posisjon] = None
+        self.sekundær_posisjon:  Optional[Posisjon] = None
+        self.roller:             list[Posisjon]     = []
 
-    # -------------------------------------------------------------------------
-    # RYKTE — beregnes automatisk fra skjulte attributter
-    # -------------------------------------------------------------------------
+    # ── Navn-hjelper ──────────────────────────────────────────────────────────
+
     @property
-    def rykte(self):
+    def fullt_navn(self) -> str:
+        return f"{self.fornavn} {self.etternavn}"
+
+    @property
+    def kortnavn(self) -> str:
+        return f"{self.fornavn[0]}. {self.etternavn}"
+
+    # ── OVR / ferdighet ───────────────────────────────────────────────────────
+
+    def _beregn_ovr(self, posisjon: Posisjon) -> int:
         """
-        Det offentlig synlige ryktet til personen.
-        Beregnes fra den attributten som avviker mest fra midtpunktet (10.5).
-        Ved lik avstand vises alle toppkandidater (f.eks. "Lojal og Arbeidssom").
-        En ny attributt må slå den forrige med minst 1 poeng for å overta alene.
+        Beregner Overall Rating for en gitt posisjon.
+        OVR = Σ(vekt × verdi) / Σ(vekter)  →  alltid sammenlignbart på tvers av posisjoner.
         """
-        attributter = {navn: getattr(self, navn) for navn in RYKTE_ORD}
-        avstand = {navn: abs(verdi - MIDTPUNKT) for navn, verdi in attributter.items()}
-        maks_avstand = max(avstand.values())
+        vekter = _OVR_VEKTER.get(posisjon, _OVR_FALLBACK)
+        teller = sum(vekt * getattr(self, attr) for attr, vekt in vekter.items())
+        nevner = sum(vekter.values())
+        return max(1, min(20, round(teller / nevner)))
 
-        vinnere = [
-            navn for navn, avst in avstand.items()
-            if maks_avstand - avst < 1
-        ]
+    @property
+    def ferdighet(self) -> int:
+        """OVR basert på primær posisjon. Returnerer 10 hvis ingen posisjon er satt."""
+        if self.primær_posisjon is None:
+            return 10
+        return self._beregn_ovr(self.primær_posisjon)
 
-        rykte_ord = []
-        for navn in vinnere:
-            verdi = attributter[navn]
-            negativ, positiv = RYKTE_ORD[navn]
-            rykte_ord.append(positiv if verdi > MIDTPUNKT else negativ)
+    def ferdighet_for_posisjon(self, posisjon: Posisjon) -> int:
+        """OVR for en vilkårlig posisjon – nyttig for å vurdere omstilling."""
+        return self._beregn_ovr(posisjon)
 
-        return " og ".join(rykte_ord)
+    # ── Tilgjengelighet ───────────────────────────────────────────────────────
 
-    # -------------------------------------------------------------------------
-    # INTERN HJELPER — sikker oppdatering av attributter
-    # -------------------------------------------------------------------------
-    def _sett_attributt(self, navn, verdi):
-        """Setter en skjult attributt og klamper verdien til lovlig skala."""
-        setattr(self, navn, max(SKALA_MIN, min(SKALA_MAX, verdi)))
+    @property
+    def er_tilgjengelig(self) -> bool:
+        """Kan spilleren velges til kamp?"""
+        return not self.skadet and self.kondisjon > 30.0
 
-    def _klampe_alle(self):
-        """Sikrer at alle skjulte attributter er innenfor 1–20 etter en hendelse."""
-        for navn in RYKTE_ORD:
-            self._sett_attributt(navn, getattr(self, navn))
+    @property
+    def effektiv_ferdighet(self) -> int:
+        """
+        OVR justert for kondisjon og skade.
+        Kondisjon under 70 % gir gradvis reduksjon.
+        """
+        base = self.ferdighet
+        if self.kondisjon < 70.0:
+            faktor = 0.7 + 0.3 * (self.kondisjon / 70.0)
+            base   = max(1, round(base * faktor))
+        return base
 
-    # -------------------------------------------------------------------------
-    # FYSIKK — kondisjon og skader
-    # -------------------------------------------------------------------------
-    def hvil_en_dag(self):
-        """Kalles av kalender.py hver dag. Bygger opp kondisjon gradvis."""
+    # ── Kondisjon ────────────────────────────────────────────────────────────
+
+    def _kondisjon_nedgang_rate(self) -> float:
+        """
+        Daglig nedgangsrate for sesongkondisjon.
+        Høy arbeidsvilje og utholdenhet demper nedgangen.
+        """
+        basis = 2.0
+        demping = (self.arbeidsvilje + self.utholdenhet) / 40.0  # 0.05–1.0
+        return basis * (1.0 - demping * 0.6)
+
+    def bruk_i_kamp(self, minutter: int = 90) -> None:
+        """Reduserer in_game_kondisjon og sesongkondisjon etter kamp."""
+        andel = minutter / 90.0
+        ig_nedgang = 40.0 * andel * (1.0 - self.utholdenhet / 40.0)
+        self.in_game_kondisjon = max(0.0, self.in_game_kondisjon - ig_nedgang)
+
+        sesong_nedgang = self._kondisjon_nedgang_rate() * andel
+        self.kondisjon = max(0.0, self.kondisjon - sesong_nedgang)
+
+    def hvil_en_dag(self) -> None:
+        """
+        Simulerer én dags hvile:
+        - Sesongkondisjon stiger litt (påvirket av arbeidsvilje)
+        - In-game kondisjon nullstilles
+        - Skadedager telles ned
+        """
         if self.skadet:
             self.skade_dager_igjen -= 1
             if self.skade_dager_igjen <= 0:
-                self.skadet = False
-                self.skade_type = None
-                self.skade_dager_igjen = 0
-                # Friskmeldt spiller starter på 60% kondisjon
-                self.kondisjon = max(self.kondisjon, 60.0)
-            return   # Skadet spiller restituerer ikke kondisjon normalt
+                self._bli_frisk()
+        else:
+            gjenoppretting = 3.0 + self.arbeidsvilje * 0.3
+            self.kondisjon = min(100.0, self.kondisjon + gjenoppretting)
 
-        if self.kondisjon < KONDISJON_START:
-            # Restitusjon: 5% ved utholdenhet 1, 15% ved utholdenhet 20
-            restitusjon = RESTITUSJON_MIN + (
-                (self.utholdenhet - 1) / (SKALA_MAX - 1)
-                * (RESTITUSJON_MAX - RESTITUSJON_MIN)
-            )
-            self.kondisjon = min(KONDISJON_START, self.kondisjon + restitusjon)
+        self.in_game_kondisjon = 100.0
 
-    def spill_kamp_minutter(self, minutter: float):
-        """
-        Kalles av kampmotor etter kampslutt.
-        Trekker fra persistent kondisjon basert på minutter spilt og utholdenhet.
-        En spiller med utholdenhet 20 mister 15% på 90 min.
-        En spiller med utholdenhet 1 mister 35% på 90 min.
-        """
-        andel = minutter / 90.0
-        kost = andel * (
-            KONDISJON_KOST_MAKS - (
-                (self.utholdenhet - 1) / (SKALA_MAX - 1)
-                * (KONDISJON_KOST_MAKS - KONDISJON_KOST_MIN)
-            )
-        )
-        self.kondisjon = max(0.0, self.kondisjon - kost)
+    def _bli_frisk(self) -> None:
+        self.skadet            = False
+        self.skade_dager_igjen = 0
+        self.skade_type        = SkadeType.INGEN
 
-    def tilbakestill_in_game_kondisjon(self):
-        """Kalles av kampmotor ved kampstart. Setter in-game til persistent kondisjon."""
-        self.in_game_kondisjon = self.kondisjon
+    # ── Skader ────────────────────────────────────────────────────────────────
 
-    def oppdater_in_game_kondisjon(self, tretthet_drop: float):
-        """
-        Kalles av kampmotor hvert intervall og ved halvtid.
-        In-game kondisjon faller raskere for spillere med lav utholdenhet.
-        """
-        justert_drop = tretthet_drop * (1.0 - (self.utholdenhet / (SKALA_MAX * 2)))
-        self.in_game_kondisjon = max(0.0, self.in_game_kondisjon - justert_drop)
+    def _trekk_skadetype(self) -> SkadeType:
+        """Trekker skadetype vektet etter SKADE_SANNSYNLIGHET."""
+        kast  = random.random()
+        kumul = 0.0
+        for skade, prob in SKADE_SANNSYNLIGHET:
+            kumul += prob
+            if kast <= kumul:
+                return skade
+        return SkadeType.FORSTUING
 
-    @property
-    def effektiv_ferdighet(self) -> float:
+    def paadra_skade(self, skade_type: Optional[SkadeType] = None) -> SkadeType:
         """
-        Returnerer ferdighetsjustert for in-game kondisjon.
-        En spiller med ferdighet 20 og 50% kondisjon presterer som ferdighet 10.
-        Skadet spiller kan ikke spille.
-        """
-        if self.skadet:
-            return 0.0
-        ferdighet = getattr(self, 'ferdighet', 10)
-        return ferdighet * (self.in_game_kondisjon / 100.0)
+        Påfører spilleren en skade.
+        Hvis skade_type er None trekkes typen tilfeldig.
+        Fysikk og presstoleranse reduserer antall dager noe.
 
-    @property
-    def er_spilleklar(self) -> bool:
-        """Returnerer True hvis spilleren er frisk og over kondisjongrensen."""
-        return not self.skadet and self.kondisjon >= KONDISJON_KAMP_GRENSE
-
-    @property
-    def skaderisiko_multiplikator(self) -> float:
+        Returnerer skadetypen som ble pådratt.
         """
-        Returnerer en multiplikator for skaderisiko basert på in-game kondisjon.
-        Under 60%: dobbel risiko. Under 40%: tredobbel.
-        """
-        if self.in_game_kondisjon < 40.0:
-            return 3.0
-        elif self.in_game_kondisjon < KONDISJON_KRITISK:
-            return 2.0
-        return 1.0
-
-    def paadrа_skade(self, skade_type: str = None, dager: int = None):
-        """
-        Setter spilleren som skadet.
-        Kalles av kampmotor ved skadehendelse.
-        """
-        import random as _random
         if skade_type is None:
-            # Trekk skadetype vektet etter sannsynlighet
-            typer   = [s[0] for s in SKADETYPER]
-            vekter  = [s[2] for s in SKADETYPER]
-            skade_type = _random.choices(typer, weights=vekter, k=1)[0]
+            skade_type = self._trekk_skadetype()
 
-        if dager is None:
-            varighet = next(s[1] for s in SKADETYPER if s[0] == skade_type)
-            dager = _random.randint(*varighet)
+        min_d, maks_d = SKADE_DAGER[skade_type]
+        dager = random.randint(min_d, maks_d)
+
+        # Fysikk og presstoleranse gir inntil 20 % raskere heling
+        reduksjon = 1.0 - 0.10 * (self.fysikk / 20.0) - 0.10 * (self.presstoleranse / 20.0)
+        dager = max(min_d, round(dager * reduksjon))
 
         self.skadet            = True
         self.skade_type        = skade_type
         self.skade_dager_igjen = dager
-        self.kondisjon         = max(0.0, self.kondisjon - 20.0)
+        return skade_type
 
-    # -------------------------------------------------------------------------
-    # ATTRIBUTTDRIFT — hendelser påvirker personligheten over tid
-    # -------------------------------------------------------------------------
-    def opplev_hendelse(self, hendelse_type):
+    def skaderisiko(self) -> float:
         """
-        Kalles av spillmotoren når noe viktig skjer med personen.
-        Skjulte attributter drifter gradvis basert på hendelsestypen.
+        Returnerer sannsynligheten (0.0–1.0) for at spilleren pådrar seg skade
+        i én kamp. Lav kondisjon og lav fysikk øker risikoen.
         """
-        if hendelse_type == "sitter_på_benken_over_tid":
-            if self._arbeidsvilje > UTAALMODIGHET_GRENSE:
-                self._lojalitet -= 1
-                self._egoisme += 1
-                print(
-                    f"[{self.fornavn} {self.etternavn}] "
-                    f"Lojaliteten synker. Begynner å bli utålmodig."
-                )
+        basis     = 0.05
+        kondis_f  = max(0.0, (70.0 - self.kondisjon) / 70.0) * 0.10
+        fysikk_f  = (20 - self.fysikk) / 20.0 * 0.05
+        return min(0.50, basis + kondis_f + fysikk_f)
 
-        elif hendelse_type == "vinner_viktig_kamp":
-            if random.random() < PRESS_BOOST_SJANSE and self._presstoleranse < SKALA_MAX:
-                self._presstoleranse += 1
-                print(
-                    f"[{self.fornavn} {self.etternavn}] "
-                    f"Vokser på oppgaven. Presstoleranse øker."
-                )
+    # ── Utvikling ─────────────────────────────────────────────────────────────
 
-        self._klampe_alle()
+    def tren(self, attributt: str, mengde: int = 1) -> bool:
+        """
+        Forsøk å forbedre ett attributt med 'mengde'.
+        Arbeidsvilje og potensial avgjør om forbedringen lykkes.
+        Returnerer True hvis attributtet økte.
+        """
+        if attributt not in _FERDIGHET_ATTRS:
+            raise ValueError(f"'{attributt}' er ikke et gyldig treningsattributt")
 
-    # -------------------------------------------------------------------------
-    # REPRESENTASJON
-    # -------------------------------------------------------------------------
-    def __repr__(self):
-        rolle = self.hent_naavaerende_rolle()
-        rolle_tekst = rolle.tittel if rolle else "Uten rolle"
+        nåværende = getattr(self, attributt)
+        if nåværende >= self.potensial:
+            return False   # Nådd sitt potensial på dette attributtet
+
+        suksess_sjanse = (self.arbeidsvilje / 20.0) * (1.0 - nåværende / 20.0)
+        if random.random() < suksess_sjanse:
+            setattr(self, attributt, min(20, nåværende + mengde))
+            return True
+        return False
+
+    def ald_en_sesong(self) -> None:
+        """
+        Simulerer aldring ved sesongstart.
+        - Spillere over 30 kan miste litt i fysiske attributter.
+        - Mentale attributter holder seg lenger.
+        - Potensial kan falle litt hvert år over 28.
+        """
+        self.alder += 1
+
+        if self.alder > 30:
+            for attr in ("fart", "utholdenhet", "fysikk"):
+                if random.random() < 0.4:
+                    ny = max(1, getattr(self, attr) - 1)
+                    setattr(self, attr, ny)
+
+        if self.alder > 28 and self.potensial > 1:
+            if random.random() < 0.3:
+                self.potensial = max(1, self.potensial - 1)
+
+    # ── Markedsverdi ──────────────────────────────────────────────────────────
+
+    @property
+    def markedsverdi_nok(self) -> int:
+        """
+        Enkel markedsverdi-formel i tusen NOK.
+        Basert på OVR, alder, rykte og potensial.
+        """
+        ovr     = self.ferdighet
+        alder_f = max(0.2, 1.0 - abs(self.alder - 26) * 0.04)   # topper på 26
+        basis   = ovr * ovr * 50                                  # 50–20 000 kNOK
+        return round(basis * alder_f * (self.rykte / 10.0))
+
+    # ── Streng-representasjon ─────────────────────────────────────────────────
+
+    def __repr__(self) -> str:
+        pos = self.primær_posisjon.name if self.primær_posisjon else "—"
         return (
-            f"<Person: {self.fornavn} {self.etternavn}, "
-            f"{self.alder} år — {rolle_tekst} — Rykte: {self.rykte}>"
+            f"<Person {self.kortnavn!r}  "
+            f"alder={self.alder}  pos={pos}  "
+            f"OVR={self.ferdighet}  "
+            f"kond={self.kondisjon:.0f}%"
+            f"{' [SKADET]' if self.skadet else ''}>"
         )
+
+    def __str__(self) -> str:
+        return self.fullt_navn
+
+    # ── Serialisering (enkel dict for lagring) ────────────────────────────────
+
+    def til_dict(self) -> dict:
+        d: dict = {
+            "id": self.id, "fornavn": self.fornavn, "etternavn": self.etternavn,
+            "alder": self.alder,
+            "kondisjon": self.kondisjon,
+            "in_game_kondisjon": self.in_game_kondisjon,
+            "skadet": self.skadet,
+            "skade_dager_igjen": self.skade_dager_igjen,
+            "skade_type": self.skade_type.name,
+            "primær_posisjon":   self.primær_posisjon.name   if self.primær_posisjon   else None,
+            "sekundær_posisjon": self.sekundær_posisjon.name if self.sekundær_posisjon else None,
+            "roller": [r.name for r in self.roller],
+        }
+        for attr in _FERDIGHET_ATTRS + _META_ATTRS:
+            d[attr] = getattr(self, attr)
+        return d
+
+    @classmethod
+    def fra_dict(cls, data: dict) -> "Person":
+        ferdigheter = {k: data[k] for k in _FERDIGHET_ATTRS + _META_ATTRS if k in data}
+        p = cls(
+            id=data["id"], fornavn=data["fornavn"], etternavn=data["etternavn"],
+            alder=data["alder"], **ferdigheter,
+        )
+        p.kondisjon          = data.get("kondisjon", 100.0)
+        p.in_game_kondisjon  = data.get("in_game_kondisjon", 100.0)
+        p.skadet             = data.get("skadet", False)
+        p.skade_dager_igjen  = data.get("skade_dager_igjen", 0)
+        p.skade_type         = SkadeType[data.get("skade_type", "INGEN")]
+        if data.get("primær_posisjon"):
+            p.primær_posisjon   = Posisjon[data["primær_posisjon"]]
+        if data.get("sekundær_posisjon"):
+            p.sekundær_posisjon = Posisjon[data["sekundær_posisjon"]]
+        p.roller = [Posisjon[r] for r in data.get("roller", [])]
+        return p
+
+
+# ── Fabrikk-funksjon ──────────────────────────────────────────────────────────
+
+def lag_spiller(
+    id: str,
+    fornavn: str,
+    etternavn: str,
+    alder: int,
+    posisjon: Posisjon,
+    ovr_mål: int = 10,
+    variasjon: int = 3,
+    potensial: Optional[int] = None,
+) -> Person:
+    """
+    Genererer en spiller med tilfeldige men realistiske attributter
+    sentrert rundt ovr_mål ± variasjon, tilpasset posisjonen.
+
+    potensial: hvis None settes det til ovr_mål + 0–4 (unge spillere kan vokse)
+    """
+    vekter = _OVR_VEKTER.get(posisjon, _OVR_FALLBACK)
+
+    attrs: dict[str, int] = {}
+    for attr in _FERDIGHET_ATTRS:
+        vekt   = vekter.get(attr, 0)
+        senter = ovr_mål + (vekt - 2)        # viktige attributter trekkes opp
+        verdi  = senter + random.randint(-variasjon, variasjon)
+        attrs[attr] = max(1, min(20, verdi))
+
+    if potensial is None:
+        potensial = min(20, ovr_mål + random.randint(0, max(0, 28 - alder) // 3))
+
+    p = Person(
+        id=id, fornavn=fornavn, etternavn=etternavn, alder=alder,
+        potensial=potensial,
+        rykte=max(1, min(20, ovr_mål + random.randint(-4, 2))),
+        **attrs,
+    )
+    p.primær_posisjon = posisjon
+    return p
