@@ -2,6 +2,7 @@ from person import (
     Person, SpillerRolle, TrenerRolle, ManagerRolle,
     SKALA_MIN, SKALA_MAX
 )
+from dataclasses import dataclass
 
 # =============================================================================
 # STADION
@@ -119,7 +120,56 @@ class Klubb:
 
         # --- PERSONELL ---
         self._alt_personell = []   # Én enkelt kilde til sannhet om hvem som er i klubben
+       
+        def betal_ukentlige_utgifter(self):
+        """Kalles av kalenderen én gang i uka."""
+        total_lonn = sum(getattr(s, 'kontrakt', Kontrakt(0, 0, 0)).ukelonn for s in self.spillerstall)
+        
+        # Trekk fra saldo. Går saldoen i minus, kan styret gi deg sparken over tid.
+        self.saldo -= total_lonn
+        
+        # Oppdater det synlige lønnsbudsjettet
+        self.ukentlig_loennsbudsjett = total_lonn
+        
+        def motta_aarlig_sponsor(self):
+        """Kalles ved sesongstart."""
+        # En klubb i Eliteserien med mye historisk suksess får mest.
+        base = {"Eliteserien": 15_000_000, "OBOS-ligaen": 4_000_000, "PostNord-ligaen": 500_000}.get(self.divisjon, 100_000)
+        suksess_multiplikator = 1.0 + (self.historisk_suksess / 20.0) # Inntil dobbel pris for topplag
+        
+        sponsor_sum = int(base * suksess_multiplikator)
+        self.saldo += sponsor_sum
+        return sponsor_sum
 
+        def beregn_billettinntekter(self, motstander_rykte: int, billettpris: int = 150):
+        """Kalles når laget spiller hjemmekamp."""
+        if not self.stadion: return 0
+        
+        # Beregn tilskuere basert på supporterbase (1-20) pluss motstanderens trekkplaster
+        base_tilskuere = (self.supporterbase / 20.0) * self.stadion.kapasitet
+        motstander_trekk = (motstander_rykte / 20.0) * 2000
+        
+        # Legg til litt tilfeldighet for vær/form
+        import random
+        faktiske_tilskuere = int(base_tilskuere + motstander_trekk + random.randint(-500, 1500))
+        
+        # Klamper verdien mellom 0 og max kapasitet
+        faktiske_tilskuere = max(0, min(self.stadion.kapasitet, faktiske_tilskuere))
+        
+        inntekt = faktiske_tilskuere * billettpris
+        self.saldo += inntekt
+        return faktiske_tilskuere, inntekt
+        
+        def sjekk_rik_onkel(self):
+        """Sjekkes månedlig eller når saldo er farlig lav."""
+        if getattr(self, 'har_rik_eier', False) and self.saldo < 0:
+            import random
+            if random.random() < 0.20: # 20% sjanse for at han blar opp når det kniper
+                redningspakke = abs(self.saldo) + random.randint(2_000_000, 10_000_000)
+                self.saldo += redningspakke
+                # Returner tekst som HendelsesManager kan sende som nyhet!
+                return f"RIK ONKEL REDDER KLUBBEN: {self.navn} mottar {redningspakke:,} kr fra investorer!"
+        return None
     # =========================================================================
     # PERSONELL — properties filtrerer _alt_personell i sanntid
     # =========================================================================
@@ -157,7 +207,16 @@ class Klubb:
         """Registrerer en rivalklubb."""
         if klubb_id not in self.rivaler:
             self.rivaler.append(klubb_id)
+            
+@dataclass
+class Kontrakt:
+    ukelonn: int
+    utlops_aar: int      # F.eks. 2027
+    spiller_verdi: int   # Markedsverdien ved signering
 
+    @property
+    def aar_igjen(self, dags_dato_aar: int) -> int:
+        return max(0, self.utlops_aar - dags_dato_aar)
     # =========================================================================
     # ØKONOMI
     # =========================================================================
