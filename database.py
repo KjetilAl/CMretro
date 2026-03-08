@@ -271,9 +271,21 @@ def _bygg_klubb(d: dict) -> Klubb:
         standard  = d["stadion_standard"],
         byggeaar  = d["stadion_byggeaar"],
     )
+    
     styrke = d.get("historisk_styrke", 10)
-    budsjett          = int(styrke * 3_000_000)
-    lønn              = int(styrke * 150_000)
+    divisjon = d.get("divisjon", "Eliteserien")
+    
+    # Dynamisk økonomi basert på divisjon + styrke
+    base_budsjett = 0
+    if divisjon == "Eliteserien": base_budsjett = 20_000_000
+    elif divisjon == "OBOS-ligaen": base_budsjett = 5_000_000
+    elif divisjon == "PostNord-ligaen": base_budsjett = 1_000_000
+    else: base_budsjett = 250_000
+    
+    multiplikator = 1.0 + ((styrke - 10) / 3.33)
+    budsjett = int(base_budsjett * max(0.5, multiplikator))
+    lønn = int(budsjett * 0.05)
+
     supporterbase     = max(1, min(20, styrke - 1 + random.randint(-2, 2)))
     ambisjonsnivaa    = max(1, min(20, styrke - 2 + random.randint(-1, 1)))
     historisk_suksess = max(1, min(20, styrke + random.randint(-3, 3)))
@@ -281,23 +293,24 @@ def _bygg_klubb(d: dict) -> Klubb:
     klubb = Klubb(
         id                      = d["id"],
         navn                    = d["navn"],
-        kortnavn                = d.get("kortnamn", d["navn"][:3].upper()),
+        kortnavn                = d.get("kortnamn", d.get("kortnavn", d["navn"][:3].upper())),
         grunnlagt_aar           = d.get("grunnlagt_aar", 1900),
         farger                  = d.get("farger", ["Blå", "Hvit"]),
         stadion                 = stadion,
-        divisjon                = d.get("divisjon", "Eliteserien"),
+        divisjon                = divisjon,
         budsjett                = budsjett,
         ukentlig_loennsbudsjett = lønn,
-        gjeld                   = 0,
+        gjeld                   = int(budsjett * 0.15), # Liten startgjeld for realisme
         supporterbase           = supporterbase,
         ambisjonsnivaa          = ambisjonsnivaa,
         historisk_suksess       = historisk_suksess,
-        intern_uro              = 1,
+        intern_uro              = random.randint(1, 10), # Litt tilfeldig drama fra start!
         okonomi_problem         = 1,
     )
-    klubb.rivaler          = d.get("rivaler", [])
+    # Beholder ID-ene som strenger inntil videre, lette å koble senere
+    klubb.rival_ider = d.get("rivaler", []) 
     klubb.historisk_styrke = styrke
-    klubb.by               = d.get("by", "")
+    klubb.by = d.get("by", "")
     return klubb
 
 
