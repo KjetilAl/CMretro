@@ -9,6 +9,28 @@ from enum import Enum, auto
 from typing import Optional
 import random
 
+# Globale skalagrenser — brukes på tvers av moduler
+SKALA_MIN: int = 1
+SKALA_MAX: int = 20
+
+
+# ── Roller ────────────────────────────────────────────────────────────────────
+
+class SpillerRolle:
+    """Markør: personen er registrert som aktiv spiller i en klubb."""
+    pass
+
+class TrenerRolle:
+    """Markør: personen er registrert som trener."""
+    spesialitet: str = ""
+
+    def __init__(self, spesialitet: str = "Generell"):
+        self.spesialitet = spesialitet
+
+class ManagerRolle:
+    """Markør: personen er registrert som manager/hovedtrener."""
+    pass
+
 
 # ── Posisjoner ────────────────────────────────────────────────────────────────
 
@@ -312,6 +334,10 @@ class Person:
         self.sekundær_posisjon:  Optional[Posisjon] = None
         self.roller:             list[Posisjon]     = []
 
+        # Klubb-rolle og kontrakt — settes eksternt av klubb/økonomi-modulen
+        self._naavaerende_rolle = None   # SpillerRolle | TrenerRolle | ManagerRolle
+        self.kontrakt           = None   # Kontrakt-objekt fra okonomi.py
+
     # ── Navn-hjelper ──────────────────────────────────────────────────────────
 
     @property
@@ -321,6 +347,14 @@ class Person:
     @property
     def kortnavn(self) -> str:
         return f"{self.fornavn[0]}. {self.etternavn}"
+
+    def hent_naavaerende_rolle(self):
+        """Returnerer aktivt rolle-objekt (SpillerRolle, TrenerRolle, ManagerRolle eller None)."""
+        return self._naavaerende_rolle
+
+    def sett_rolle(self, rolle) -> None:
+        """Setter personens aktive rolle i en klubb."""
+        self._naavaerende_rolle = rolle
 
     # ── OVR / ferdighet ───────────────────────────────────────────────────────
 
@@ -496,13 +530,35 @@ class Person:
     @property
     def markedsverdi_nok(self) -> int:
         """
-        Enkel markedsverdi-formel i tusen NOK.
-        Basert på OVR, alder, rykte og potensial.
+        Markedsverdi i NOK.
+        - Eksponentiell OVR-kurve (ferdighet^3) gjør toppspillere ekstremt dyre
+        - Potensial-bonus for unge spillere under 23 med uutnyttet potensial
+        - Kontraktsfaktor: siste kontraktsår gir kraftig rabatt (Bosman-effekt)
+        - Alder: topper på 26, faller gradvis mot 0,2× ved 38
         """
-        ovr     = self.ferdighet
-        alder_f = max(0.2, 1.0 - abs(self.alder - 26) * 0.04)   # topper på 26
-        basis   = ovr * ovr * 50                                  # 50–20 000 kNOK
-        return round(basis * alder_f * (self.rykte / 10.0))
+        ovr = self.ferdighet
+
+        # Eksponentiell baseverdi: OVR 10 → 1 MNOK, OVR 20 → 8 MNOK
+        basis = 50_000 + (ovr ** 3) * 1_000
+
+        # Potensialkurve: under 23 og utap for sitt potensial
+        potensial_f = 1.0
+        if self.alder <= 22 and self.potensial > ovr:
+            potensial_f = 1.0 + (self.potensial - ovr) * 0.15
+
+        # Alderskurve: topper 25-27, faller raskt etter 32
+        alder_f = max(0.15, 1.0 - abs(self.alder - 26) * 0.045)
+
+        # Kontraktsfaktor — beregnet av okonomi-modulen, eksponert her
+        kontrakt_f = 1.0
+        if self.kontrakt is not None:
+            aar_igjen = getattr(self.kontrakt, "aar_igjen_fra", lambda y: 2)(1995)
+            if aar_igjen == 0:
+                kontrakt_f = 0.20   # Bosman: gratis neste sommer
+            elif aar_igjen == 1:
+                kontrakt_f = 0.60
+
+        return round(basis * potensial_f * alder_f * kontrakt_f)
 
     # ── Streng-representasjon ─────────────────────────────────────────────────
 
