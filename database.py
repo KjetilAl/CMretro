@@ -182,26 +182,63 @@ def _generer_spiller(
     primær = random.choice(POSISJONER_PER_GRUPPE[gruppe])
     sek_kandidater = NATURLIG_SEKUNDÆR.get(primær, [])
     sekundær = random.choice(sek_kandidater) if sek_kandidater and random.random() < 0.4 else None
-    ferdighet  = _ferdighet_for_lag(historisk_styrke)
-    personl    = _personlighet()
-
-    sid = spiller_id or f"{etternavn.lower()}_{fornavn.lower()}_{lag_id}"
+    attributter = _generer_attributter_for_posisjon(gruppe, historisk_styrke)
+    personl = _personlighet()
+    
+    # Sett potensial til å være minst like høyt som nåværende evne, ofte høyere for unge
+    snitt_ferdighet = sum(attributter.values()) / len(attributter)
+    alder = _alder_for_posisjon(gruppe)
+    potensial_bonus = max(0, (25 - alder) // 2) + random.randint(0, 3)
+    potensial = min(20, round(snitt_ferdighet + potensial_bonus))
 
     return {
-        "id":               sid,
-        "fornavn":          fornavn,
-        "etternavn":        etternavn,
-        "alder":            _alder_for_posisjon(gruppe),
-        "lag_id":           lag_id,
-        "primær_posisjon":  primær,
+        "id": sid,
+        "fornavn": fornavn,
+        "etternavn": etternavn,
+        "alder": alder,
+        "lag_id": lag_id,
+        "primær_posisjon": primær,
         "sekundær_posisjon": sekundær,
-        "ferdighet":        ferdighet,
-        "utholdenhet":      _utholdenhet(ferdighet),
+        "potensial": potensial,
+        "rykte": historisk_styrke + random.randint(-2, 2),
+        **attributter,  # Pakker ut alle 14 ferdighetene!
         **personl,
-        "_generert":        True,   # Markering — aldri overskrive manuell data
+        "_generert": True,
     }
 
-
+def _generer_attributter_for_posisjon(gruppe: str, base_styrke: int) -> dict:
+    """
+    Genererer et sett med 14 ferdigheter.
+    base_styrke er lagets historiske styrke (f.eks. 15 for Molde, 5 for amatører).
+    """
+    # Vi lager en mal der 1.0 er "normalt for dette laget", > 1.0 er spesialist
+    profiler = {
+        "K": {"keeperferdighet": 1.5, "fysikk": 1.2, "mentalitet": 1.2, "skudd": 0.2, "dribling": 0.2},
+        "F": {"takling": 1.5, "hodespill": 1.3, "fysikk": 1.3, "aggressivitet": 1.2, "skudd": 0.5},
+        "M": {"pasning": 1.5, "teknikk": 1.3, "kreativitet": 1.4, "utholdenhet": 1.3, "keeperferdighet": 0.1},
+        "A": {"skudd": 1.5, "fart": 1.3, "dribling": 1.3, "teknikk": 1.2, "keeperferdighet": 0.1}
+    }
+    
+    profil = profiler.get(gruppe, profiler["M"])
+    attributter = {}
+    
+    alle_ferdigheter = [
+        "skudd", "pasning", "dribling", "takling", "hodespill", "teknikk", 
+        "dodball", "keeperferdighet", "fart", "utholdenhet", "fysikk", 
+        "kreativitet", "aggressivitet", "mentalitet"
+    ]
+    
+    for ferdighet in alle_ferdigheter:
+        vekt = profil.get(ferdighet, 1.0) # Standard vekt er 1.0
+        
+        # Trekker et tall normalfordelt rundt lagets styrke * vekt
+        snitt = base_styrke * vekt
+        # Legg inn litt tilfeldig variasjon
+        verdi = random.gauss(snitt, 2.5) 
+        
+        attributter[ferdighet] = max(1, min(20, round(verdi)))
+        
+    return attributter
 # =============================================================================
 # FYLL INN 0-VERDIER FOR EN EKSISTERENDE SPILLERDICT
 # =============================================================================
