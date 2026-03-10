@@ -17,8 +17,8 @@ from enum import Enum, auto
 # ─────────────────────────────────────────────────────────────────────────────
 # SKJERMKONSTANTER
 # ─────────────────────────────────────────────────────────────────────────────
-W_BASE, H_BASE = 320, 200
-SKALA          = 3
+W_BASE, H_BASE = 640, 400
+SKALA          = 2
 W, H           = W_BASE * SKALA, H_BASE * SKALA
 FPS            = 60
 TITTEL         = "Norsk Football Manager '95"
@@ -62,17 +62,17 @@ class Fonter:
         pygame.font.init()
         # Courier New fallback til monospace
         try:
-            cls.liten  = pygame.font.SysFont("Courier New", 9,  bold=False)
-            cls.normal = pygame.font.SysFont("Courier New", 11, bold=False)
-            cls.fet    = pygame.font.SysFont("Courier New", 11, bold=True)
-            cls.stor   = pygame.font.SysFont("Courier New", 14, bold=True)
-            cls.tittel = pygame.font.SysFont("Courier New", 18, bold=True)
+            cls.liten  = pygame.font.SysFont("Courier New", 13,  bold=False)
+            cls.normal = pygame.font.SysFont("Courier New", 15, bold=False)
+            cls.fet    = pygame.font.SysFont("Courier New", 15, bold=True)
+            cls.stor   = pygame.font.SysFont("Courier New", 20, bold=True)
+            cls.tittel = pygame.font.SysFont("Courier New", 26, bold=True)
         except Exception:
-            cls.liten  = pygame.font.Font(None, 10)
-            cls.normal = pygame.font.Font(None, 12)
-            cls.fet    = pygame.font.Font(None, 12)
-            cls.stor   = pygame.font.Font(None, 16)
-            cls.tittel = pygame.font.Font(None, 20)
+            cls.liten  = pygame.font.Font(None, 15)
+            cls.normal = pygame.font.Font(None, 18)
+            cls.fet    = pygame.font.Font(None, 18)
+            cls.stor   = pygame.font.Font(None, 24)
+            cls.tittel = pygame.font.Font(None, 30)
         cls._initialisert = True
 
 
@@ -295,30 +295,122 @@ def _tegn_topplinje(surf, venstre: str, midtre: str, høyre: str, font=None):
     """Toppstripel i NAVY med tre tekstfelt."""
     if font is None:
         font = Fonter.liten
-    pygame.draw.rect(surf, P.NAVY, (0, 0, W_BASE, 12))
-    pygame.draw.rect(surf, P.BLÅL, (0, 11, W_BASE, 1))
-    tegn_tekst(surf, venstre, (2, 2), font, P.GULT)
+    pygame.draw.rect(surf, P.NAVY, (0, 0, W_BASE, 24))
+    pygame.draw.rect(surf, P.BLÅL, (0, 23, W_BASE, 2))
+    tegn_tekst(surf, venstre, (4, 4), font, P.GULT)
     mid_t = font.render(midtre, False, P.KREMHVIT)
-    surf.blit(mid_t, (W_BASE//2 - mid_t.get_width()//2, 2))
+    surf.blit(mid_t, (W_BASE//2 - mid_t.get_width()//2, 4))
     høyre_t = font.render(høyre, False, P.LYSBLÅ_UI)
-    surf.blit(høyre_t, (W_BASE - høyre_t.get_width() - 2, 2))
+    surf.blit(høyre_t, (W_BASE - høyre_t.get_width() - 4, 4))
 
 def _tegn_bunnlinje(surf, tekst: str, font=None):
     """Statuslinje nederst."""
     if font is None:
         font = Fonter.liten
-    pygame.draw.rect(surf, P.NAVY, (0, H_BASE-11, W_BASE, 11))
-    pygame.draw.rect(surf, P.BLÅL, (0, H_BASE-12, W_BASE, 1))
-    tegn_tekst(surf, tekst, (3, H_BASE-9), font, P.GRÅ_LYS)
+    pygame.draw.rect(surf, P.NAVY, (0, H_BASE-22, W_BASE, 22))
+    pygame.draw.rect(surf, P.BLÅL, (0, H_BASE-24, W_BASE, 2))
+    tegn_tekst(surf, tekst, (6, H_BASE-18), font, P.GRÅ_LYS)
 
 def _tegn_bakgrunn(surf, farge=None):
     if farge is None:
         farge = P.GRÅ_PANEL
     surf.fill(farge)
     # Subtil horisontal rutenett-overlay
-    for y in range(0, H_BASE, 8):
+    for y in range(0, H_BASE, 16):
         pygame.draw.line(surf, (farge[0]+4, farge[1]+4, farge[2]+6), (0, y), (W_BASE, y))
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SKJERM: OPPRETT MANAGER
+# ─────────────────────────────────────────────────────────────────────────────
+class OpprettManagerSkjerm(SkjermData):
+    """
+    Vises én gang ved ny sesong, etter at klubb er valgt.
+    Spilleren skriver inn fornavn og etternavn med tastatur.
+    """
+    def __init__(self, klubb_navn: str, on_ferdig: Callable[[str, str], None]):
+        self.klubb_navn  = klubb_navn
+        self.on_ferdig   = on_ferdig
+        self.fornavn     = ""
+        self.etternavn   = ""
+        self._aktiv_felt = 0   # 0=fornavn, 1=etternavn
+
+    def tegn(self, surf, ui):
+        surf.fill(P.NAVY)
+        for y in range(H_BASE):
+            mørkhet = y // 3
+            r, g, b = P.NAVY
+            pygame.draw.line(surf, (max(0, r-mørkhet//2),
+                                    max(0, g-mørkhet//2),
+                                    min(255, b+mørkhet//4)),
+                             (0, y), (W_BASE, y))
+
+        fb = Fonter.stor
+        f  = Fonter.normal
+
+        # Tittel
+        tittel = f"NY MANAGER — {self.klubb_navn.upper()}"
+        t = fb.render(tittel, False, P.GULT)
+        surf.blit(t, (W_BASE//2 - t.get_width()//2, 40))
+
+        # Felt 0: Fornavn
+        pygame.draw.rect(surf, P.GRÅ_PANEL, (W_BASE//2 - 100, 100, 200, 30))
+        kant_farge_0 = P.GULT if self._aktiv_felt == 0 else P.GRÅ_MØRK
+        pygame.draw.rect(surf, kant_farge_0, (W_BASE//2 - 100, 100, 200, 30), 2)
+        tegn_tekst(surf, "FORNAVN:", (W_BASE//2 - 100, 80), f, P.KREMHVIT)
+        tegn_tekst(surf, self.fornavn + ("_" if self._aktiv_felt == 0 else ""),
+                   (W_BASE//2 - 90, 106), f, P.HVIT)
+
+        # Felt 1: Etternavn
+        pygame.draw.rect(surf, P.GRÅ_PANEL, (W_BASE//2 - 100, 180, 200, 30))
+        kant_farge_1 = P.GULT if self._aktiv_felt == 1 else P.GRÅ_MØRK
+        pygame.draw.rect(surf, kant_farge_1, (W_BASE//2 - 100, 180, 200, 30), 2)
+        tegn_tekst(surf, "ETTERNAVN:", (W_BASE//2 - 100, 160), f, P.KREMHVIT)
+        tegn_tekst(surf, self.etternavn + ("_" if self._aktiv_felt == 1 else ""),
+                   (W_BASE//2 - 90, 186), f, P.HVIT)
+
+        begge_fylt = len(self.fornavn) >= 2 and len(self.etternavn) >= 2
+
+        if begge_fylt:
+            tegn_knapp(surf, (W_BASE//2 - 80, 260, 160, 30), "BEKREFT →", f,
+                       hovered=ui.mus_innenfor(((W_BASE//2 - 80)*SKALA, 260*SKALA, 160*SKALA, 30*SKALA)))
+
+        _tegn_bunnlinje(surf, "TAB=BYTT FELT  ENTER=BEKREFT")
+
+    def håndter_event(self, event, ui):
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            mx, my = ui.base_mus()
+            if W_BASE//2 - 100 <= mx <= W_BASE//2 + 100:
+                if 100 <= my <= 130:
+                    self._aktiv_felt = 0
+                elif 180 <= my <= 210:
+                    self._aktiv_felt = 1
+
+            begge_fylt = len(self.fornavn) >= 2 and len(self.etternavn) >= 2
+            if begge_fylt and W_BASE//2 - 80 <= mx <= W_BASE//2 + 80 and 260 <= my <= 290:
+                self.on_ferdig(self.fornavn, self.etternavn)
+
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_TAB:
+                self._aktiv_felt = 1 - self._aktiv_felt
+            elif event.key == pygame.K_RETURN:
+                if self._aktiv_felt == 0:
+                    self._aktiv_felt = 1
+                else:
+                    if len(self.fornavn) >= 2 and len(self.etternavn) >= 2:
+                        self.on_ferdig(self.fornavn, self.etternavn)
+            elif event.key == pygame.K_BACKSPACE:
+                if self._aktiv_felt == 0:
+                    self.fornavn = self.fornavn[:-1]
+                else:
+                    self.etternavn = self.etternavn[:-1]
+            else:
+                char = event.unicode
+                if char.isalpha() or char in " -":
+                    if self._aktiv_felt == 0 and len(self.fornavn) < 20:
+                        self.fornavn += char
+                    elif self._aktiv_felt == 1 and len(self.etternavn) < 20:
+                        self.etternavn += char
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SKJERM: SPLASHSCREEN / HOVEDMENY
@@ -339,10 +431,10 @@ class HovedmenySkjerm(SkjermData):
                                     max(0, 64+mørkhet//4)), (0, y), (W_BASE, y))
 
         # Bane-dekorasjon i bunn
-        tegn_bane(surf, (0, H_BASE-40, W_BASE, 40), P.GRØNN, P.HVIT)
+        tegn_bane(surf, (0, H_BASE-80, W_BASE, 80), P.GRØNN, P.HVIT)
 
         # Logo-boks
-        logo_rect = (20, 18, W_BASE-40, 70)
+        logo_rect = (40, 36, W_BASE-80, 140)
         pygame.draw.rect(surf, (10, 18, 50), logo_rect)
         pygame.draw.rect(surf, P.BLÅLL, logo_rect, 2)
 
@@ -353,33 +445,33 @@ class HovedmenySkjerm(SkjermData):
         t2 = f_tittel.render("MANAGER", False, P.GULT)
         t3 = f_sub.render("'95  EDITION", False, P.CYANL)
 
-        surf.blit(t1, (logo_rect[0] + (logo_rect[2]-t1.get_width())//2, 26))
-        surf.blit(t2, (logo_rect[0] + (logo_rect[2]-t2.get_width())//2, 44))
-        surf.blit(t3, (logo_rect[0] + (logo_rect[2]-t3.get_width())//2, 64))
+        surf.blit(t1, (logo_rect[0] + (logo_rect[2]-t1.get_width())//2, 52))
+        surf.blit(t2, (logo_rect[0] + (logo_rect[2]-t2.get_width())//2, 88))
+        surf.blit(t3, (logo_rect[0] + (logo_rect[2]-t3.get_width())//2, 128))
 
         # Pulserende «Trykk Enter»
         if (self._tick // 30) % 2 == 0:
             t4 = Fonter.liten.render("[ TRYKK ENTER FOR Å STARTE ]", False, P.KREMHVIT)
-            surf.blit(t4, ((W_BASE - t4.get_width())//2, 100))
+            surf.blit(t4, ((W_BASE - t4.get_width())//2, 200))
 
         # Versjon/copyright
         tv = Fonter.liten.render("v0.1  ©1995 ANTROPIKK SOFTWARE", False, P.GRÅ_MØRK)
-        surf.blit(tv, ((W_BASE - tv.get_width())//2, H_BASE-50))
+        surf.blit(tv, ((W_BASE - tv.get_width())//2, H_BASE-100))
 
         # Knapper
-        tegn_knapp(surf, (60, 118, 80, 14), "START", Fonter.normal,
-                   hovered=ui.mus_innenfor((60*SKALA, 118*SKALA, 80*SKALA, 14*SKALA)))
-        tegn_knapp(surf, (180, 118, 80, 14), "AVSLUTT", Fonter.normal,
-                   hovered=ui.mus_innenfor((180*SKALA, 118*SKALA, 80*SKALA, 14*SKALA)))
+        tegn_knapp(surf, (120, 236, 160, 28), "START", Fonter.normal,
+                   hovered=ui.mus_innenfor((120*SKALA, 236*SKALA, 160*SKALA, 28*SKALA)))
+        tegn_knapp(surf, (360, 236, 160, 28), "AVSLUTT", Fonter.normal,
+                   hovered=ui.mus_innenfor((360*SKALA, 236*SKALA, 160*SKALA, 28*SKALA)))
 
     def håndter_event(self, event, ui):
         if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
             self.on_start()
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             mx, my = ui.base_mus()
-            if 60 <= mx <= 140 and 118 <= my <= 132:
+            if 120 <= mx <= 280 and 236 <= my <= 264:
                 self.on_start()
-            elif 180 <= mx <= 260 and 118 <= my <= 132:
+            elif 360 <= mx <= 520 and 236 <= my <= 264:
                 self.on_avslutt()
 
 
@@ -393,41 +485,48 @@ class VelgKlubbSkjerm(SkjermData):
         self._scroll  = 0
         self._hover   = -1
         self._valgt   = -1
-        self._SYNLIGE = 10
+        self._SYNLIGE = 11
 
     def tegn(self, surf, ui):
         _tegn_bakgrunn(surf)
         _tegn_topplinje(surf, "NFM'95", "VELG KLUBB", f"{len(self.klubber)} KLUBBER")
 
         # Kolonnehoder
-        pygame.draw.rect(surf, P.BLÅL, (2, 13, W_BASE-4, 10))
+        pygame.draw.rect(surf, P.BLÅL, (4, 26, W_BASE-8, 20))
         f = Fonter.liten
-        tegn_tekst(surf, "KLUBB",        (4,   14), f, P.HVIT)
-        tegn_tekst(surf, "STJERNER",     (130, 14), f, P.HVIT)
-        tegn_tekst(surf, "STADION",      (200, 14), f, P.HVIT)
+        tegn_tekst(surf, "KLUBB",        (8,   28), f, P.HVIT)
+        tegn_tekst(surf, "STJERNER",     (260, 28), f, P.HVIT)
+        tegn_tekst(surf, "STADION",      (400, 28), f, P.HVIT)
 
         # Klubbliste
         synlige  = self._SYNLIGE
         start    = self._scroll
         slutt    = min(start + synlige, len(self.klubber))
-        rad_h    = 14
-        y0       = 25
+        rad_h    = 28
+        y0       = 50
 
         mx, my = ui.base_mus()
 
         for i, idx in enumerate(range(start, slutt)):
             k     = self.klubber[idx]
             ry    = y0 + i * rad_h
-            er_hover  = (4 <= mx <= W_BASE-8 and ry <= my < ry+rad_h)
+
+            if isinstance(k, str):
+                # Det er en divisjons-separator
+                pygame.draw.rect(surf, P.GRÅ_MØRK, (8, ry, W_BASE-32, rad_h-2))
+                tegn_tekst(surf, f"── {k.upper()} ──", (12, ry+4), f, P.GRÅ_LYS)
+                continue
+
+            er_hover  = (8 <= mx <= W_BASE-16 and ry <= my < ry+rad_h)
             er_valgt  = (idx == self._valgt)
 
             if er_valgt:
-                pygame.draw.rect(surf, P.BLÅL, (4, ry, W_BASE-16, rad_h-1))
+                pygame.draw.rect(surf, P.BLÅL, (8, ry, W_BASE-32, rad_h-2))
             elif er_hover:
-                pygame.draw.rect(surf, P.GRÅ_MØRK, (4, ry, W_BASE-16, rad_h-1))
+                pygame.draw.rect(surf, P.GRÅ_MØRK, (8, ry, W_BASE-32, rad_h-2))
                 self._hover = idx
             elif i % 2 == 0:
-                pygame.draw.rect(surf, (38, 38, 52), (4, ry, W_BASE-16, rad_h-1))
+                pygame.draw.rect(surf, (38, 38, 52), (8, ry, W_BASE-32, rad_h-2))
 
             navn    = getattr(k, 'navn', str(k))
             styrke  = getattr(k, 'historisk_styrke', 0)
@@ -437,20 +536,20 @@ class VelgKlubbSkjerm(SkjermData):
             stjerner_str  = "★" * stjerner_full + "☆" * (5 - stjerner_full)
 
             tkfarge = P.HVIT if er_valgt else P.KREMHVIT
-            tegn_tekst(surf, navn[:22],   (6,   ry+2), f, tkfarge, max_bredde=120)
-            tegn_tekst(surf, stjerner_str,(132,  ry+2), f, P.GULT)
-            tegn_tekst(surf, f"{kap:,}",  (200, ry+2), f, P.LYSBLÅ_UI)
+            tegn_tekst(surf, navn[:22],   (12,   ry+4), f, tkfarge, max_bredde=240)
+            tegn_tekst(surf, stjerner_str,(264,  ry+4), f, P.GULT)
+            tegn_tekst(surf, f"{kap:,}",  (400, ry+4), f, P.LYSBLÅ_UI)
 
         # Scrollbar
-        tegn_scrollbar(surf, W_BASE-7, y0, synlige*rad_h,
+        tegn_scrollbar(surf, W_BASE-14, y0, synlige*rad_h,
                         len(self.klubber), synlige, self._scroll)
 
         # Bekreft-knapp (aktiv når valgt)
         aktiv = self._valgt >= 0
-        tegn_knapp(surf, (W_BASE//2-40, H_BASE-24, 80, 13), "VELG KLUBB",
+        tegn_knapp(surf, (W_BASE//2-80, H_BASE-48, 160, 26), "VELG KLUBB",
                    Fonter.normal, aktiv=aktiv,
                    hovered=aktiv and ui.mus_innenfor(
-                       ((W_BASE//2-40)*SKALA, (H_BASE-24)*SKALA, 80*SKALA, 13*SKALA)))
+                       ((W_BASE//2-80)*SKALA, (H_BASE-48)*SKALA, 160*SKALA, 26*SKALA)))
 
         _tegn_bunnlinje(surf, "↑↓/SCROLL  ENTER=VELG  ESC=TILBAKE")
 
@@ -461,37 +560,49 @@ class VelgKlubbSkjerm(SkjermData):
 
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             mx, my = ui.base_mus()
-            rad_h, y0 = 14, 25
+            rad_h, y0 = 28, 50
             # Klikk på rad
             for i in range(self._SYNLIGE):
                 idx = self._scroll + i
                 if idx >= len(self.klubber):
                     break
+                k = self.klubber[idx]
+                if isinstance(k, str):
+                    continue  # Kan ikke klikke på separator
                 ry = y0 + i * rad_h
-                if 4 <= mx <= W_BASE-8 and ry <= my < ry+rad_h:
+                if 8 <= mx <= W_BASE-16 and ry <= my < ry+rad_h:
                     if self._valgt == idx:
                         self.on_valgt(self.klubber[idx])
                     else:
                         self._valgt = idx
             # Bekreft-knapp
             if (self._valgt >= 0 and
-                    (W_BASE//2-40)*SKALA <= event.pos[0] <= (W_BASE//2+40)*SKALA and
-                    (H_BASE-24)*SKALA  <= event.pos[1] <= (H_BASE-11)*SKALA):
+                    (W_BASE//2-80)*SKALA <= event.pos[0] <= (W_BASE//2+80)*SKALA and
+                    (H_BASE-48)*SKALA  <= event.pos[1] <= (H_BASE-22)*SKALA):
                 self.on_valgt(self.klubber[self._valgt])
 
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_DOWN:
-                if self._valgt < len(self.klubber)-1:
-                    self._valgt += 1
-                    if self._valgt >= self._scroll + self._SYNLIGE:
-                        self._scroll = min(maks_scroll, self._scroll+1)
+                start_sok = max(0, self._valgt)
+                for nv in range(start_sok + 1, len(self.klubber)):
+                    if not isinstance(self.klubber[nv], str):
+                        self._valgt = nv
+                        if self._valgt >= self._scroll + self._SYNLIGE:
+                            self._scroll = min(maks_scroll, self._valgt - self._SYNLIGE + 1)
+                        break
             elif event.key == pygame.K_UP:
                 if self._valgt > 0:
-                    self._valgt -= 1
-                    if self._valgt < self._scroll:
-                        self._scroll = max(0, self._scroll-1)
+                    for nv in range(self._valgt - 1, -1, -1):
+                        if not isinstance(self.klubber[nv], str):
+                            self._valgt = nv
+                            if self._valgt < self._scroll:
+                                self._scroll = max(0, self._valgt)
+                            break
                 elif self._valgt == -1 and self.klubber:
-                    self._valgt = 0
+                    for nv in range(len(self.klubber)):
+                        if not isinstance(self.klubber[nv], str):
+                            self._valgt = nv
+                            break
             elif event.key == pygame.K_RETURN and self._valgt >= 0:
                 self.on_valgt(self.klubber[self._valgt])
 
@@ -529,15 +640,18 @@ class KampdagSkjerm(SkjermData):
         er_hjemme = (self.kamp.hjemme == self.spiller_klubb)
         sted = "HJEMMEKAMP" if er_hjemme else "BORTEKAMP"
         dato_str = self.dato.strftime('%d.%m.%Y')
-        _tegn_topplinje(surf, sted, dato_str, "")
+        manager_str = ""
+        if hasattr(ui, 'manager_fornavn') and ui.manager_fornavn:
+            manager_str = f"Manager: {ui.manager_fornavn} {ui.manager_etternavn}"
+        _tegn_topplinje(surf, sted, dato_str, manager_str)
 
         f = Fonter.normal
         fb = Fonter.fet
         fs = Fonter.liten
 
         # Kampheader
-        pygame.draw.rect(surf, P.NAVY, (4, 14, W_BASE-8, 30))
-        pygame.draw.rect(surf, P.BLÅL, (4, 14, W_BASE-8, 30), 1)
+        pygame.draw.rect(surf, P.NAVY, (8, 28, W_BASE-16, 60))
+        pygame.draw.rect(surf, P.BLÅL, (8, 28, W_BASE-16, 60), 2)
 
         hjemme_navn = getattr(self.kamp.hjemme, 'navn', '?')
         borte_navn  = getattr(self.kamp.borte,  'navn', '?')
@@ -548,33 +662,33 @@ class KampdagSkjerm(SkjermData):
         t_b  = fb.render(borte_navn[:16],  False,
                          P.GULT if not er_hjemme else P.KREMHVIT)
 
-        surf.blit(t_h,  (8,  22))
-        surf.blit(t_vs, (W_BASE//2 - t_vs.get_width()//2, 22))
-        surf.blit(t_b,  (W_BASE - t_b.get_width() - 8, 22))
+        surf.blit(t_h,  (16,  44))
+        surf.blit(t_vs, (W_BASE//2 - t_vs.get_width()//2, 44))
+        surf.blit(t_b,  (W_BASE - t_b.get_width() - 16, 44))
 
-        tegn_linje_h(surf, P.BLÅL, 4, 44, W_BASE-8)
+        tegn_linje_h(surf, P.BLÅL, 8, 88, W_BASE-16)
 
         # Meny
         rader = self._meny_rader()
         mx, my = ui.base_mus()
-        meny_y = 52
-        knapp_h = 18
+        meny_y = 104
+        knapp_h = 36
 
         for i, (tekst, _) in enumerate(rader):
             ry = meny_y + i * (knapp_h + 4)
-            er_hover = (10 <= mx <= W_BASE-10 and ry <= my < ry+knapp_h)
-            tegn_knapp(surf, (10, ry, W_BASE-20, knapp_h), tekst,
+            er_hover = (20 <= mx <= W_BASE-20 and ry <= my < ry+knapp_h)
+            tegn_knapp(surf, (20, ry, W_BASE-40, knapp_h), tekst,
                        fb, hovered=er_hover)
 
         # Neste kamp-info
-        tegn_linje_h(surf, P.GRÅ_MØRK, 4, H_BASE-22, W_BASE-8)
-        tegn_tekst(surf, "ESC = INGEN KAMP DENNE RUNDEN", (4, H_BASE-20), fs, P.GRÅ_MØRK)
+        tegn_linje_h(surf, P.GRÅ_MØRK, 8, H_BASE-44, W_BASE-16)
+        tegn_tekst(surf, "ESC = INGEN KAMP DENNE RUNDEN", (8, H_BASE-40), fs, P.GRÅ_MØRK)
         _tegn_bunnlinje(surf, "F1–F4  VELG HANDLING")
 
     def håndter_event(self, event, ui):
         rader = self._meny_rader()
-        meny_y   = 52
-        knapp_h  = 18
+        meny_y   = 104
+        knapp_h  = 36
 
         if event.type == pygame.KEYDOWN:
             tast_map = {
@@ -590,7 +704,7 @@ class KampdagSkjerm(SkjermData):
             mx, my = ui.base_mus()
             for i, (_, callback) in enumerate(rader):
                 ry = meny_y + i * (knapp_h + 4)
-                if 10 <= mx <= W_BASE-10 and ry <= my < ry+knapp_h:
+                if 20 <= mx <= W_BASE-20 and ry <= my < ry+knapp_h:
                     callback()
                     return
 
@@ -604,10 +718,11 @@ class LaguttakSkjerm(SkjermData):
     Under: benk. Klikk for å velge og bytte.
     """
 
-    def __init__(self, builder, motstandernavn: str, on_ferdig: Callable):
+    def __init__(self, builder, motstandernavn: str, on_ferdig: Callable, on_spillerkort: Callable = None):
         self.builder       = builder
         self.motstandernavn = motstandernavn
         self.on_ferdig     = on_ferdig
+        self.on_spillerkort = on_spillerkort
         self._valgt_start  = -1   # Indeks i startellever
         self._valgt_benk   = -1   # Indeks i benk
         self._formasjon_idx = list(__import__('taktikk').TAKTIKK_KATALOG.keys()).index(
@@ -620,20 +735,26 @@ class LaguttakSkjerm(SkjermData):
         f  = Fonter.liten
         fb = Fonter.fet
 
+        manager_str = ""
+        if hasattr(ui, 'manager_fornavn') and ui.manager_fornavn:
+            manager_str = f"Manager: {ui.manager_fornavn} {ui.manager_etternavn}"
+        elif self.motstandernavn:
+            manager_str = f"vs {self.motstandernavn[:10]}"
+
         _tegn_topplinje(surf, "LAGUTTAK",
                          self.builder.klubb.navn[:18],
-                         f"vs {self.motstandernavn[:10]}")
+                         manager_str)
 
         # ── Venstre kolonne: startellever ────────────────────────
-        rad_h = 13
-        y0    = 14
-        x0    = 2
+        rad_h = 26
+        y0    = 28
+        x0    = 4
 
         for i, s in enumerate(self.builder.startellever):
             ry     = y0 + i * rad_h
             er_v   = (i == self._valgt_start)
             farge  = P.BLÅL if er_v else (P.NAVY if i % 2 == 0 else (28, 32, 56))
-            pygame.draw.rect(surf, farge, (x0, ry, 150, rad_h-1))
+            pygame.draw.rect(surf, farge, (x0, ry, 300, rad_h-2))
             pos    = getattr(s, 'primær_posisjon', None)
             pos_s  = pos.name if pos else '?'
             ferd   = getattr(s, 'ferdighet', 0)
@@ -642,23 +763,23 @@ class LaguttakSkjerm(SkjermData):
             skadet = getattr(s, 'skadet', False)
 
             tkf = P.HVIT if er_v else P.KREMHVIT
-            tegn_tekst(surf, f"{i+1:>2}", (x0+1, ry+2), f, P.GRÅ_LYS)
-            tegn_tekst(surf, navn[:14],   (x0+14, ry+2), f, tkf, max_bredde=74)
-            tegn_tekst(surf, pos_s,       (x0+90, ry+2), f, P.LYSBLÅ_UI)
-            tegn_tekst(surf, str(ferd),   (x0+114, ry+2), f, P.GULT)
-            tegn_kondisjon_bar(surf, x0+126, ry+4, 22, kond, skadet)
+            tegn_tekst(surf, f"{i+1:>2}", (x0+2, ry+4), f, P.GRÅ_LYS)
+            tegn_tekst(surf, navn[:14],   (x0+28, ry+4), f, tkf, max_bredde=148)
+            tegn_tekst(surf, pos_s,       (x0+180, ry+4), f, P.LYSBLÅ_UI)
+            tegn_tekst(surf, str(ferd),   (x0+228, ry+4), f, P.GULT)
+            tegn_kondisjon_bar(surf, x0+252, ry+8, 44, kond, skadet)
 
         # ── Benk (under startellevere) ────────────────────────────
-        benk_y0 = y0 + 11 * rad_h + 4
-        pygame.draw.rect(surf, P.BLÅL, (x0, benk_y0-1, 150, 8))
-        tegn_tekst(surf, "── BENK ──", (x0+2, benk_y0), Fonter.liten, P.HVIT)
-        benk_y0 += 9
+        benk_y0 = y0 + 11 * rad_h + 8
+        pygame.draw.rect(surf, P.BLÅL, (x0, benk_y0-2, 300, 16))
+        tegn_tekst(surf, "── BENK ──", (x0+4, benk_y0), Fonter.liten, P.HVIT)
+        benk_y0 += 18
 
         for j, s in enumerate(self.builder.benk):
-            ry     = benk_y0 + j * (rad_h - 2)
+            ry     = benk_y0 + j * (rad_h - 4)
             er_v   = (j == self._valgt_benk)
             farge  = P.BLÅLL if er_v else (P.GRÅ_MØRK if j % 2 == 0 else (48, 48, 48))
-            pygame.draw.rect(surf, farge, (x0, ry, 150, rad_h-2))
+            pygame.draw.rect(surf, farge, (x0, ry, 300, rad_h-4))
             pos    = getattr(s, 'primær_posisjon', None)
             pos_s  = pos.name if pos else '?'
             ferd   = getattr(s, 'ferdighet', 0)
@@ -667,69 +788,69 @@ class LaguttakSkjerm(SkjermData):
             skadet = getattr(s, 'skadet', False)
 
             tkf = P.NAVY if er_v else P.GRÅ_LYS
-            tegn_tekst(surf, f"S{j+1}", (x0+1, ry+1), f, P.GRÅ_MØRK)
-            tegn_tekst(surf, navn[:14], (x0+14, ry+1), f, tkf, max_bredde=74)
-            tegn_tekst(surf, pos_s,     (x0+90, ry+1), f, P.LYSBLÅ_UI)
-            tegn_tekst(surf, str(ferd), (x0+114, ry+1), f, P.GULT)
-            tegn_kondisjon_bar(surf, x0+126, ry+3, 22, kond, skadet)
+            tegn_tekst(surf, f"S{j+1}", (x0+2, ry+2), f, P.GRÅ_MØRK)
+            tegn_tekst(surf, navn[:14], (x0+28, ry+2), f, tkf, max_bredde=148)
+            tegn_tekst(surf, pos_s,     (x0+180, ry+2), f, P.LYSBLÅ_UI)
+            tegn_tekst(surf, str(ferd), (x0+228, ry+2), f, P.GULT)
+            tegn_kondisjon_bar(surf, x0+252, ry+6, 44, kond, skadet)
 
         # ── Høyre: formasjons-bane ────────────────────────────────
-        bane_rect = (156, 14, 162, 150)
+        bane_rect = (312, 28, 324, 300)
         tegn_formasjon_på_bane(surf, bane_rect, self.builder.startellever,
                                 self.builder.formasjon_navn,
                                 valgt_idx=self._valgt_start, font=Fonter.liten)
 
         # ── Formasjonsvelger ──────────────────────────────────────
-        fv_y = 170
-        pygame.draw.rect(surf, P.NAVY, (156, fv_y, 162, 16))
-        pygame.draw.rect(surf, P.BLÅL, (156, fv_y, 162, 16), 1)
-        tegn_tekst(surf, "◄", (158, fv_y+3), fb, P.GULT)
+        fv_y = 340
+        pygame.draw.rect(surf, P.NAVY, (312, fv_y, 324, 32))
+        pygame.draw.rect(surf, P.BLÅL, (312, fv_y, 324, 32), 2)
+        tegn_tekst(surf, "◄", (316, fv_y+6), fb, P.GULT)
         t_f = Fonter.normal.render(self.builder.formasjon_navn, False, P.KREMHVIT)
-        surf.blit(t_f, (156 + 82 - t_f.get_width()//2, fv_y+3))
-        tegn_tekst(surf, "►", (306, fv_y+3), fb, P.GULT)
+        surf.blit(t_f, (312 + 164 - t_f.get_width()//2, fv_y+6))
+        tegn_tekst(surf, "►", (612, fv_y+6), fb, P.GULT)
 
         # ── Ferdig-knapp ──────────────────────────────────────────
-        tegn_knapp(surf, (156, H_BASE-14, 162, 12), "FERDIG / TILBAKE",
+        tegn_knapp(surf, (312, H_BASE-28, 324, 24), "FERDIG / TILBAKE",
                    Fonter.normal,
-                   hovered=ui.mus_innenfor((156*SKALA, (H_BASE-14)*SKALA,
-                                            162*SKALA, 12*SKALA)))
+                   hovered=ui.mus_innenfor((312*SKALA, (H_BASE-28)*SKALA,
+                                            324*SKALA, 24*SKALA)))
 
         # ── Instruksjon ───────────────────────────────────────────
         _tegn_bunnlinje(surf, "KLIKK START→BENK FOR Å BYTTE  ◄► FORMASJON")
 
         # Marker bytte-modus
         if self._valgt_start >= 0 and self._valgt_benk >= 0:
-            pygame.draw.rect(surf, P.GULT, (x0, 0, 150, 1))  # gul toppstripel
+            pygame.draw.rect(surf, P.GULT, (x0, 0, 300, 2))  # gul toppstripel
 
     def håndter_event(self, event, ui):
         from taktikk import TAKTIKK_KATALOG
-        rad_h  = 13
-        y0     = 14
-        benk_y0 = y0 + 11 * rad_h + 4 + 9
+        rad_h  = 26
+        y0     = 28
+        benk_y0 = y0 + 11 * rad_h + 8
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             mx, my = ui.base_mus()
 
             # Formasjonspiler
-            if 170 <= my <= 186:
-                if 156 <= mx <= 170:  # Venstre pil
+            if 340 <= my <= 372:
+                if 312 <= mx <= 340:  # Venstre pil
                     self._formasjon_idx = (self._formasjon_idx - 1) % len(self._TAKTIKK_LISTE)
                     self.builder.bytt_formasjon(self._TAKTIKK_LISTE[self._formasjon_idx])
                     self._valgt_start = -1; self._valgt_benk = -1
                     return
-                if 305 <= mx <= 320:  # Høyre pil
+                if 610 <= mx <= 640:  # Høyre pil
                     self._formasjon_idx = (self._formasjon_idx + 1) % len(self._TAKTIKK_LISTE)
                     self.builder.bytt_formasjon(self._TAKTIKK_LISTE[self._formasjon_idx])
                     self._valgt_start = -1; self._valgt_benk = -1
                     return
 
             # Ferdig-knapp
-            if my >= H_BASE-14 and 156 <= mx <= 318:
+            if my >= H_BASE-28 and 312 <= mx <= 636:
                 self.on_ferdig()
                 return
 
             # Klikk på startspiller
-            if mx <= 152:
+            if mx <= 304:
                 for i in range(len(self.builder.startellever)):
                     ry = y0 + i * rad_h
                     if ry <= my < ry + rad_h:
@@ -737,18 +858,26 @@ class LaguttakSkjerm(SkjermData):
                             self.builder.bytt_spiller(i, self._valgt_benk)
                             self._valgt_start = -1; self._valgt_benk = -1
                         else:
-                            self._valgt_start = i if self._valgt_start != i else -1
+                            if self._valgt_start == i:
+                                if hasattr(self, 'on_spillerkort') and self.on_spillerkort:
+                                    self.on_spillerkort(self.builder.startellever[i], self.builder.startellever, i)
+                            else:
+                                self._valgt_start = i
                         return
 
                 # Klikk på benkespiller
                 for j in range(len(self.builder.benk)):
-                    ry = benk_y0 + j * (rad_h - 2)
-                    if ry <= my < ry + rad_h-2:
+                    ry = benk_y0 + j * (rad_h - 4)
+                    if ry <= my < ry + rad_h-4:
                         if self._valgt_start >= 0:
                             self.builder.bytt_spiller(self._valgt_start, j)
                             self._valgt_start = -1; self._valgt_benk = -1
                         else:
-                            self._valgt_benk = j if self._valgt_benk != j else -1
+                            if self._valgt_benk == j:
+                                if hasattr(self, 'on_spillerkort') and self.on_spillerkort:
+                                    self.on_spillerkort(self.builder.benk[j], self.builder.benk, j)
+                            else:
+                                self._valgt_benk = j
                         return
 
         elif event.type == pygame.KEYDOWN:
@@ -768,14 +897,15 @@ class LaguttakSkjerm(SkjermData):
 # SKJERM: SPILLERSTALL
 # ─────────────────────────────────────────────────────────────────────────────
 class SpillerstallSkjerm(SkjermData):
-    def __init__(self, klubb, on_tilbake: Callable):
+    def __init__(self, klubb, on_tilbake: Callable, on_spillerkort: Callable = None):
         self.klubb      = klubb
         self.on_tilbake = on_tilbake
+        self.on_spillerkort = on_spillerkort
         self._scroll    = 0
         self._hover     = -1
         self._valgt     = -1
         self._alle_spillere = self._sorter_spillere()
-        self._SYNLIGE   = 12
+        self._SYNLIGE   = 13
 
     def _sorter_spillere(self):
         from taktikk import POSISJON_GRUPPE
@@ -793,23 +923,26 @@ class SpillerstallSkjerm(SkjermData):
         f  = Fonter.liten
         fb = Fonter.fet
 
-        _tegn_topplinje(surf, "SPILLERSTALL", self.klubb.navn[:20],
-                         f"{len(self._alle_spillere)} SPILLERE")
+        manager_str = f"{len(self._alle_spillere)} SPILLERE"
+        if hasattr(ui, 'manager_fornavn') and ui.manager_fornavn:
+            manager_str = f"Mgr: {ui.manager_fornavn} {ui.manager_etternavn}"
+
+        _tegn_topplinje(surf, "SPILLERSTALL", self.klubb.navn[:20], manager_str)
 
         # Kolonnehoder
-        pygame.draw.rect(surf, P.BLÅL, (2, 13, W_BASE-4, 9))
-        tegn_tekst(surf, "#",      (2,   14), f, P.HVIT)
-        tegn_tekst(surf, "NAVN",   (12,  14), f, P.HVIT)
-        tegn_tekst(surf, "POS",    (110, 14), f, P.HVIT)
-        tegn_tekst(surf, "FERD",   (134, 14), f, P.HVIT)
-        tegn_tekst(surf, "KOND",   (156, 14), f, P.HVIT)
-        tegn_tekst(surf, "RYKTE",  (200, 14), f, P.HVIT)
-        tegn_tekst(surf, "ALDER",  (240, 14), f, P.HVIT)
-        tegn_tekst(surf, "KONTRAK",(275, 14), f, P.HVIT)
+        pygame.draw.rect(surf, P.BLÅL, (4, 26, W_BASE-8, 18))
+        tegn_tekst(surf, "#",      (4,   28), f, P.HVIT)
+        tegn_tekst(surf, "NAVN",   (24,  28), f, P.HVIT)
+        tegn_tekst(surf, "POS",    (220, 28), f, P.HVIT)
+        tegn_tekst(surf, "FERD",   (268, 28), f, P.HVIT)
+        tegn_tekst(surf, "KOND",   (312, 28), f, P.HVIT)
+        tegn_tekst(surf, "RYKTE",  (400, 28), f, P.HVIT)
+        tegn_tekst(surf, "ALDER",  (480, 28), f, P.HVIT)
+        tegn_tekst(surf, "KONTRAK",(550, 28), f, P.HVIT)
 
         # Spillerrader
-        rad_h  = 13
-        y0     = 24
+        rad_h  = 26
+        y0     = 48
         start  = self._scroll
         slutt  = min(start + self._SYNLIGE, len(self._alle_spillere))
         mx, my = ui.base_mus()
@@ -818,14 +951,14 @@ class SpillerstallSkjerm(SkjermData):
             s    = self._alle_spillere[idx]
             ry   = y0 + i * rad_h
             er_v = (idx == self._valgt)
-            er_h = (2 <= mx <= W_BASE-8 and ry <= my < ry+rad_h)
+            er_h = (4 <= mx <= W_BASE-16 and ry <= my < ry+rad_h)
 
             if er_v:
-                pygame.draw.rect(surf, P.BLÅL, (2, ry, W_BASE-10, rad_h-1))
+                pygame.draw.rect(surf, P.BLÅL, (4, ry, W_BASE-20, rad_h-2))
             elif er_h:
-                pygame.draw.rect(surf, P.GRÅ_MØRK, (2, ry, W_BASE-10, rad_h-1))
+                pygame.draw.rect(surf, P.GRÅ_MØRK, (4, ry, W_BASE-20, rad_h-2))
             elif i % 2 == 0:
-                pygame.draw.rect(surf, (34, 34, 48), (2, ry, W_BASE-10, rad_h-1))
+                pygame.draw.rect(surf, (34, 34, 48), (4, ry, W_BASE-20, rad_h-2))
 
             pos     = getattr(s, 'primær_posisjon', None)
             pos_s   = pos.name if pos else '?'
@@ -841,31 +974,31 @@ class SpillerstallSkjerm(SkjermData):
             navn    = f"{fornavn[0]}. {etternavn}"
 
             tkf = P.HVIT if er_v else P.KREMHVIT
-            tegn_tekst(surf, str(idx+1),  (2,   ry+2), f, P.GRÅ_MØRK)
-            tegn_tekst(surf, navn[:18],   (12,  ry+2), f, tkf, max_bredde=95)
-            tegn_tekst(surf, pos_s,       (110, ry+2), f, P.LYSBLÅ_UI)
-            tegn_badge(surf, str(ferd),   (132, ry+1),
+            tegn_tekst(surf, str(idx+1),  (4,   ry+4), f, P.GRÅ_MØRK)
+            tegn_tekst(surf, navn[:18],   (24,  ry+4), f, tkf, max_bredde=190)
+            tegn_tekst(surf, pos_s,       (220, ry+4), f, P.LYSBLÅ_UI)
+            tegn_badge(surf, str(ferd),   (264, ry+2),
                        P.GRØNN if ferd >= 14 else (P.BLÅL if ferd >= 10 else P.GRÅ_MØRK),
                        P.HVIT, f)
             if skadet:
-                tegn_tekst(surf, "SKADET", (156, ry+2), f, P.RØD)
+                tegn_tekst(surf, "SKADET", (312, ry+4), f, P.RØD)
             else:
-                tegn_kondisjon_bar(surf, 156, ry+4, 42, kond)
-                tegn_tekst(surf, f"{kond:.0f}%", (200, ry+2), f,
+                tegn_kondisjon_bar(surf, 312, ry+8, 84, kond)
+                tegn_tekst(surf, f"{kond:.0f}%", (400, ry+4), f,
                            P.GRØNN if kond >= 90 else (P.GULT if kond >= 75 else P.RØD))
-            tegn_tekst(surf, str(rykte),  (240, ry+2), f, P.GULTL)
-            tegn_tekst(surf, str(alder),  (260, ry+2), f, P.GRÅ_LYS)
-            tegn_tekst(surf, kontr_s,     (278, ry+2), f, P.CYANL)
+            tegn_tekst(surf, str(rykte),  (480, ry+4), f, P.GULTL)
+            tegn_tekst(surf, str(alder),  (520, ry+4), f, P.GRÅ_LYS)
+            tegn_tekst(surf, kontr_s,     (556, ry+4), f, P.CYANL)
 
         # Scrollbar
-        tegn_scrollbar(surf, W_BASE-5, y0, self._SYNLIGE*rad_h,
+        tegn_scrollbar(surf, W_BASE-10, y0, self._SYNLIGE*rad_h,
                         len(self._alle_spillere), self._SYNLIGE, self._scroll)
 
         # Tilbake-knapp
-        tegn_knapp(surf, (W_BASE//2-35, H_BASE-13, 70, 11), "TILBAKE",
+        tegn_knapp(surf, (W_BASE//2-70, H_BASE-26, 140, 22), "TILBAKE",
                    Fonter.normal,
-                   hovered=ui.mus_innenfor(((W_BASE//2-35)*SKALA, (H_BASE-13)*SKALA,
-                                             70*SKALA, 11*SKALA)))
+                   hovered=ui.mus_innenfor(((W_BASE//2-70)*SKALA, (H_BASE-26)*SKALA,
+                                             140*SKALA, 22*SKALA)))
 
         _tegn_bunnlinje(surf, "↑↓ SCROLL  ESC=TILBAKE")
 
@@ -877,17 +1010,21 @@ class SpillerstallSkjerm(SkjermData):
 
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             mx, my = ui.base_mus()
-            rad_h, y0 = 13, 24
+            rad_h, y0 = 26, 48
             for i in range(self._SYNLIGE):
                 idx = self._scroll + i
                 if idx >= len(self._alle_spillere):
                     break
                 ry = y0 + i * rad_h
-                if 2 <= mx <= W_BASE-8 and ry <= my < ry+rad_h:
-                    self._valgt = idx if self._valgt != idx else -1
+                if 4 <= mx <= W_BASE-16 and ry <= my < ry+rad_h:
+                    if self._valgt == idx:
+                        if hasattr(self, 'on_spillerkort') and self.on_spillerkort:
+                            self.on_spillerkort(self._alle_spillere[idx], self._alle_spillere, idx)
+                    else:
+                        self._valgt = idx
             # Tilbake-knapp
-            if (my >= (H_BASE-13) and
-                    (W_BASE//2-35)*SKALA <= event.pos[0] <= (W_BASE//2+35)*SKALA):
+            if (my >= (H_BASE-26) and
+                    (W_BASE//2-70)*SKALA <= event.pos[0] <= (W_BASE//2+70)*SKALA):
                 self.on_tilbake()
 
         elif event.type == pygame.KEYDOWN:
@@ -903,124 +1040,165 @@ class SpillerstallSkjerm(SkjermData):
 # SKJERM: SERIATABELL
 # ─────────────────────────────────────────────────────────────────────────────
 class TabellSkjerm(SkjermData):
-    def __init__(self, tabell, spiller_klubb_navn: str, on_tilbake: Callable):
-        self.tabell              = tabell
+    def __init__(self, tabeller: dict, spiller_klubb_navn: str, on_tilbake: Callable):
+        self.tabeller            = tabeller
         self.spiller_klubb_navn  = spiller_klubb_navn
         self.on_tilbake          = on_tilbake
-        self._fane               = 0   # 0=tabell 1=toppscorere
+
+        # Divisjons-rekkefølge for faner
+        self._divisjoner = []
+        for d in ['Eliteserien', 'OBOS-ligaen', 'Div 2', 'Div 3']:
+            if d in self.tabeller:
+                self._divisjoner.append(d)
+        for d in self.tabeller.keys():
+            if d not in self._divisjoner:
+                self._divisjoner.append(d)
+
+        # Finn spillerens divisjon
+        self._valgt_div_idx = 0
+        for i, d in enumerate(self._divisjoner):
+            tab = self.tabeller[d]
+            if tab.hent_rad(self.spiller_klubb_navn):
+                self._valgt_div_idx = i
+                break
+
+        self._under_fane = 0   # 0=tabell 1=toppscorere
 
     def tegn(self, surf, ui):
         _tegn_bakgrunn(surf)
         f  = Fonter.liten
         fb = Fonter.fet
 
-        _tegn_topplinje(surf, "SERIE", self.tabell.divisjon, "")
+        aktiv_tabell = self.tabeller[self._divisjoner[self._valgt_div_idx]]
+        manager_str = ""
+        if hasattr(ui, 'manager_fornavn') and ui.manager_fornavn:
+            manager_str = f"{ui.manager_fornavn[0]}. {ui.manager_etternavn}"
+        _tegn_topplinje(surf, "SERIE", aktiv_tabell.divisjon, manager_str)
 
-        # Faner
+        # Divisjons-faner
+        fane_w = min(120, W_BASE // max(1, len(self._divisjoner)))
+        for i, d_navn in enumerate(self._divisjoner):
+            er_aktiv = i == self._valgt_div_idx
+            tegn_knapp(surf, (4 + i*fane_w, 20, fane_w-2, 16), d_navn, f,
+                       valgt=er_aktiv,
+                       hovered=(not er_aktiv and ui.mus_innenfor(((4+i*fane_w)*SKALA, 20*SKALA, (fane_w-2)*SKALA, 16*SKALA))))
+
+        # Underfaner (TABELL / TOPPSCORERE)
         for fi, tekst in enumerate(["TABELL", "TOPPSCORERE"]):
-            er_aktiv = fi == self._fane
-            tegn_knapp(surf, (2 + fi*80, 13, 78, 10), tekst, f,
+            er_aktiv = fi == self._under_fane
+            tegn_knapp(surf, (4 + fi*160, 40, 156, 18), tekst, f,
                         valgt=er_aktiv,
                         hovered=(not er_aktiv and
-                                 ui.mus_innenfor(((2+fi*80)*SKALA, 13*SKALA, 78*SKALA, 10*SKALA))))
+                                 ui.mus_innenfor(((4+fi*160)*SKALA, 40*SKALA, 156*SKALA, 18*SKALA))))
 
-        if self._fane == 0:
-            self._tegn_tabell(surf, ui)
+        if self._under_fane == 0:
+            self._tegn_tabell(surf, ui, aktiv_tabell)
         else:
-            self._tegn_toppscorere(surf, ui)
+            self._tegn_toppscorere(surf, ui, aktiv_tabell)
 
-        tegn_knapp(surf, (W_BASE//2-30, H_BASE-13, 60, 11), "TILBAKE",
+        tegn_knapp(surf, (W_BASE//2-60, H_BASE-26, 120, 22), "TILBAKE",
                    Fonter.normal,
-                   hovered=ui.mus_innenfor(((W_BASE//2-30)*SKALA, (H_BASE-13)*SKALA,
-                                             60*SKALA, 11*SKALA)))
+                   hovered=ui.mus_innenfor(((W_BASE//2-60)*SKALA, (H_BASE-26)*SKALA,
+                                             120*SKALA, 22*SKALA)))
         _tegn_bunnlinje(surf, "TAB=BYTT FANE  ESC=TILBAKE")
 
-    def _tegn_tabell(self, surf, ui):
+    def _tegn_tabell(self, surf, ui, aktiv_tabell):
         f  = Fonter.liten
-        rader = self.tabell.sorter()
+        rader = aktiv_tabell.sorter()
 
         # Kolonnetitler
-        pygame.draw.rect(surf, P.BLÅL, (2, 24, W_BASE-4, 8))
-        tegn_tekst(surf, "#",  (2,  25), f, P.HVIT)
-        tegn_tekst(surf, "KLUBB", (14, 25), f, P.HVIT)
-        tegn_tekst(surf, "K",  (142, 25), f, P.HVIT)
-        tegn_tekst(surf, "S",  (158, 25), f, P.HVIT)
-        tegn_tekst(surf, "U",  (172, 25), f, P.HVIT)
-        tegn_tekst(surf, "T",  (186, 25), f, P.HVIT)
-        tegn_tekst(surf, "MF", (200, 25), f, P.HVIT)
-        tegn_tekst(surf, "MM", (216, 25), f, P.HVIT)
-        tegn_tekst(surf, "MD", (232, 25), f, P.HVIT)
-        tegn_tekst(surf, "P",  (252, 25), f, P.HVIT)
+        pygame.draw.rect(surf, P.BLÅL, (4, 62, W_BASE-8, 16))
+        tegn_tekst(surf, "#",  (4,  64), f, P.HVIT)
+        tegn_tekst(surf, "KLUBB", (28, 64), f, P.HVIT)
+        tegn_tekst(surf, "K",  (284, 64), f, P.HVIT)
+        tegn_tekst(surf, "S",  (316, 64), f, P.HVIT)
+        tegn_tekst(surf, "U",  (344, 64), f, P.HVIT)
+        tegn_tekst(surf, "T",  (372, 64), f, P.HVIT)
+        tegn_tekst(surf, "MF", (400, 64), f, P.HVIT)
+        tegn_tekst(surf, "MM", (432, 64), f, P.HVIT)
+        tegn_tekst(surf, "MD", (464, 64), f, P.HVIT)
+        tegn_tekst(surf, "P",  (504, 64), f, P.HVIT)
 
-        rad_h = 12
-        y0    = 34
+        rad_h = 24
+        y0    = 82
         for plass, rad in enumerate(rader, 1):
             ry       = y0 + (plass-1) * rad_h
-            if ry + rad_h > H_BASE - 16:
+            if ry + rad_h > H_BASE - 32:
                 break
             er_min   = (rad.klubb_navn == self.spiller_klubb_navn)
             farge_rad = P.BLÅL if er_min else ((34,34,48) if plass % 2 == 0 else (28,28,40))
-            pygame.draw.rect(surf, farge_rad, (2, ry, W_BASE-4, rad_h-1))
+            pygame.draw.rect(surf, farge_rad, (4, ry, W_BASE-8, rad_h-2))
 
             md  = rad.mål_differanse
             md_s = f"+{md}" if md > 0 else str(md)
             tkf  = P.GULT if er_min else P.KREMHVIT
 
-            tegn_tekst(surf, str(plass),          (2,   ry+2), f, P.GRÅ_LYS)
-            tegn_tekst(surf, rad.klubb_navn[:18],  (14,  ry+2), f, tkf, max_bredde=125)
-            tegn_tekst(surf, str(rad.kamp),        (142, ry+2), f, P.LYSBLÅ_UI)
-            tegn_tekst(surf, str(rad.seier),       (158, ry+2), f, P.GRØNN)
-            tegn_tekst(surf, str(rad.uavgjort),    (172, ry+2), f, P.GULT)
-            tegn_tekst(surf, str(rad.tap),         (186, ry+2), f, P.RØD)
-            tegn_tekst(surf, str(rad.mål_for),     (200, ry+2), f, P.KREMHVIT)
-            tegn_tekst(surf, str(rad.mål_mot),     (216, ry+2), f, P.KREMHVIT)
-            tegn_tekst(surf, md_s,                 (232, ry+2), f,
+            tegn_tekst(surf, str(plass),          (4,   ry+4), f, P.GRÅ_LYS)
+            tegn_tekst(surf, rad.klubb_navn[:18],  (28,  ry+4), f, tkf, max_bredde=250)
+            tegn_tekst(surf, str(rad.kamp),        (284, ry+4), f, P.LYSBLÅ_UI)
+            tegn_tekst(surf, str(rad.seier),       (316, ry+4), f, P.GRØNN)
+            tegn_tekst(surf, str(rad.uavgjort),    (344, ry+4), f, P.GULT)
+            tegn_tekst(surf, str(rad.tap),         (372, ry+4), f, P.RØD)
+            tegn_tekst(surf, str(rad.mål_for),     (400, ry+4), f, P.KREMHVIT)
+            tegn_tekst(surf, str(rad.mål_mot),     (432, ry+4), f, P.KREMHVIT)
+            tegn_tekst(surf, md_s,                 (464, ry+4), f,
                        P.GRØNN if md > 0 else (P.RØD if md < 0 else P.GRÅ_LYS))
-            tegn_badge(surf, str(rad.poeng),        (252, ry+1),
+            tegn_badge(surf, str(rad.poeng),        (504, ry+2),
                        P.GULT if er_min else P.NAVY, P.NAVY if er_min else P.HVIT, f)
 
-    def _tegn_toppscorere(self, surf, ui):
+    def _tegn_toppscorere(self, surf, ui, aktiv_tabell):
         f  = Fonter.liten
-        if not hasattr(self.tabell, '_statistikk_register'):
-            tegn_tekst(surf, "Ingen statistikk tilgjengelig ennå.", (4, 40), f, P.GRÅ_LYS)
+        if not hasattr(aktiv_tabell, '_statistikk_register'):
+            tegn_tekst(surf, "Ingen statistikk tilgjengelig ennå.", (8, 80), f, P.GRÅ_LYS)
             return
 
-        pygame.draw.rect(surf, P.BLÅL, (2, 24, W_BASE-4, 8))
-        tegn_tekst(surf, "#",      (2,  25), f, P.HVIT)
-        tegn_tekst(surf, "SPILLER",(14, 25), f, P.HVIT)
-        tegn_tekst(surf, "K",      (158,25), f, P.HVIT)
-        tegn_tekst(surf, "MÅL",    (174,25), f, P.HVIT)
-        tegn_tekst(surf, "RTG",    (200,25), f, P.HVIT)
+        pygame.draw.rect(surf, P.BLÅL, (4, 62, W_BASE-8, 16))
+        tegn_tekst(surf, "#",      (4,  64), f, P.HVIT)
+        tegn_tekst(surf, "SPILLER",(28, 64), f, P.HVIT)
+        tegn_tekst(surf, "K",      (316,64), f, P.HVIT)
+        tegn_tekst(surf, "MÅL",    (348,64), f, P.HVIT)
+        tegn_tekst(surf, "RTG",    (400,64), f, P.HVIT)
 
-        topp = self.tabell._statistikk_register.toppscorere(12)
+        topp = aktiv_tabell._statistikk_register.toppscorere(12)
         for i, stat in enumerate(topp):
-            ry = 34 + i * 12
-            if ry + 12 > H_BASE - 16:
+            ry = 82 + i * 24
+            if ry + 24 > H_BASE - 32:
                 break
             farge_rad = (34,34,48) if i % 2 == 0 else (28,28,40)
-            pygame.draw.rect(surf, farge_rad, (2, ry, W_BASE-4, 11))
-            tegn_tekst(surf, str(i+1),        (2,  ry+2), f, P.GRÅ_LYS)
-            tegn_tekst(surf, stat.spiller_navn[:20], (14, ry+2), f, P.KREMHVIT, max_bredde=140)
-            tegn_tekst(surf, str(stat.kamper), (158,ry+2), f, P.LYSBLÅ_UI)
-            tegn_badge(surf, str(stat.mål),    (172,ry+1), P.GRØNN, P.HVIT, f)
-            tegn_tekst(surf, f"{stat.snitt_rating:.1f}", (200,ry+2), f, P.GULT)
+            pygame.draw.rect(surf, farge_rad, (4, ry, W_BASE-8, 22))
+            tegn_tekst(surf, str(i+1),        (4,  ry+4), f, P.GRÅ_LYS)
+            tegn_tekst(surf, stat.spiller_navn[:20], (28, ry+4), f, P.KREMHVIT, max_bredde=280)
+            tegn_tekst(surf, str(stat.kamper), (316,ry+4), f, P.LYSBLÅ_UI)
+            tegn_badge(surf, str(stat.mål),    (344,ry+2), P.GRØNN, P.HVIT, f)
+            tegn_tekst(surf, f"{stat.snitt_rating:.1f}", (400,ry+4), f, P.GULT)
 
     def håndter_event(self, event, ui):
         if event.type == pygame.KEYDOWN:
             if event.key in (pygame.K_ESCAPE, pygame.K_BACKSPACE):
                 self.on_tilbake()
             elif event.key == pygame.K_TAB:
-                self._fane = 1 - self._fane
+                self._under_fane = 1 - self._under_fane
+            elif event.key == pygame.K_LEFT:
+                self._valgt_div_idx = (self._valgt_div_idx - 1) % len(self._divisjoner)
+            elif event.key == pygame.K_RIGHT:
+                self._valgt_div_idx = (self._valgt_div_idx + 1) % len(self._divisjoner)
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             mx, my = ui.base_mus()
-            # Faner
+            # Divisjons-faner
+            fane_w = min(120, W_BASE // max(1, len(self._divisjoner)))
+            for i in range(len(self._divisjoner)):
+                if 4 + i*fane_w <= mx <= 4 + i*fane_w + fane_w - 2 and 20 <= my <= 36:
+                    self._valgt_div_idx = i
+                    return
+
+            # Underfaner
             for fi in range(2):
-                if 2+fi*80 <= mx <= 80+fi*80 and 13 <= my <= 23:
-                    self._fane = fi
+                if 4+fi*160 <= mx <= 160+fi*160 and 40 <= my <= 58:
+                    self._under_fane = fi
                     return
             # Tilbake
-            if (my >= H_BASE-13 and
-                    (W_BASE//2-30)*SKALA <= event.pos[0] <= (W_BASE//2+30)*SKALA):
+            if (my >= H_BASE-26 and
+                    (W_BASE//2-60)*SKALA <= event.pos[0] <= (W_BASE//2+60)*SKALA):
                 self.on_tilbake()
 
 
@@ -1046,8 +1224,8 @@ class KamprapportSkjerm(SkjermData):
         _tegn_topplinje(surf, "KAMPRAPPORT", "", r.hjemme_navn[:10] + " vs " + r.borte_navn[:10])
 
         # Score-banner
-        pygame.draw.rect(surf, (10, 20, 60), (4, 13, W_BASE-8, 22))
-        pygame.draw.rect(surf, P.BLÅLL, (4, 13, W_BASE-8, 22), 1)
+        pygame.draw.rect(surf, (10, 20, 60), (8, 26, W_BASE-16, 44))
+        pygame.draw.rect(surf, P.BLÅLL, (8, 26, W_BASE-16, 44), 2)
 
         t_h  = Fonter.stor.render(r.hjemme_navn[:14], False, P.KREMHVIT)
         t_b  = Fonter.stor.render(r.borte_navn[:14],  False, P.KREMHVIT)
@@ -1056,22 +1234,22 @@ class KamprapportSkjerm(SkjermData):
             score += " e.o." if not r.straffer else " str."
         t_s  = Fonter.tittel.render(score, False, P.GULT)
 
-        surf.blit(t_h, (6, 18))
-        surf.blit(t_b, (W_BASE - t_b.get_width() - 6, 18))
-        surf.blit(t_s, (W_BASE//2 - t_s.get_width()//2, 16))
+        surf.blit(t_h, (12, 36))
+        surf.blit(t_b, (W_BASE - t_b.get_width() - 12, 36))
+        surf.blit(t_s, (W_BASE//2 - t_s.get_width()//2, 32))
 
         # Faner
         fane_navn = ["HENDELSER", "STATISTIKK", "SPILLERBØRS"]
         for fi, navn in enumerate(fane_navn):
             er_aktiv = fi == self._fane
-            tegn_knapp(surf, (2 + fi*106, 37, 104, 9), navn, f,
+            tegn_knapp(surf, (4 + fi*212, 74, 208, 18), navn, f,
                         valgt=er_aktiv,
                         hovered=(not er_aktiv and
-                                 ui.mus_innenfor(((2+fi*106)*SKALA, 37*SKALA,
-                                                   104*SKALA, 9*SKALA))))
+                                 ui.mus_innenfor(((4+fi*212)*SKALA, 74*SKALA,
+                                                   208*SKALA, 18*SKALA))))
 
-        innhold_y = 48
-        innhold_h = H_BASE - innhold_y - 14
+        innhold_y = 96
+        innhold_h = H_BASE - innhold_y - 28
 
         if self._fane == 0:
             self._tegn_hendelser(surf, innhold_y, innhold_h)
@@ -1080,34 +1258,34 @@ class KamprapportSkjerm(SkjermData):
         else:
             self._tegn_bors(surf, innhold_y, innhold_h)
 
-        tegn_knapp(surf, (W_BASE//2-35, H_BASE-13, 70, 11), "FORTSETT",
+        tegn_knapp(surf, (W_BASE//2-70, H_BASE-26, 140, 22), "FORTSETT",
                    Fonter.normal,
-                   hovered=ui.mus_innenfor(((W_BASE//2-35)*SKALA, (H_BASE-13)*SKALA,
-                                             70*SKALA, 11*SKALA)))
+                   hovered=ui.mus_innenfor(((W_BASE//2-70)*SKALA, (H_BASE-26)*SKALA,
+                                             140*SKALA, 22*SKALA)))
         _tegn_bunnlinje(surf, "TAB=FANE  ENTER=FORTSETT")
 
     def _tegn_hendelser(self, surf, y0, h):
         f = Fonter.liten
         hendelser = sorted(self.resultat.hendelser, key=lambda x: x.minutt)
-        synlige   = h // 10
+        synlige   = h // 20
         start     = self._scroll
         ikon_map  = {"mål": "⚽", "gult_kort": "🟨", "rødt_kort": "🟥",
                      "skade": "🚑", "bytte": "🔄"}
 
         for i, hend in enumerate(hendelser[start:start+synlige]):
-            ry  = y0 + i * 10
+            ry  = y0 + i * 20
             farge = (P.GULT if hend.type == "mål" else
                      P.GRÅ_LYS if hend.type == "bytte" else P.KREMHVIT)
             lag_s = "H" if hend.lag == "hjemme" else "B"
             navn  = getattr(hend.spiller, 'etternavn', '?')
             detalj = f" ({hend.detalj})" if hend.detalj else ""
             tegn_tekst(surf, f"{hend.minutt:>3}'  [{lag_s}]  {navn[:16]}{detalj[:20]}",
-                       (4, ry), f, farge)
+                       (8, ry), f, farge)
 
         if not hendelser:
-            tegn_tekst(surf, "Ingen hendelser registrert.", (4, y0+10), f, P.GRÅ_MØRK)
+            tegn_tekst(surf, "Ingen hendelser registrert.", (8, y0+20), f, P.GRÅ_MØRK)
 
-        tegn_scrollbar(surf, W_BASE-6, y0, h, len(hendelser), synlige, self._scroll)
+        tegn_scrollbar(surf, W_BASE-12, y0, h, len(hendelser), synlige, self._scroll)
 
     def _tegn_statistikk(self, surf, y0, h):
         f  = Fonter.liten
@@ -1118,56 +1296,56 @@ class KamprapportSkjerm(SkjermData):
 
         def rad(label, v_h, v_b, ry, farge_v=P.KREMHVIT):
             midtre = W_BASE // 2
-            pygame.draw.rect(surf, (28,28,44), (4, ry, W_BASE-8, 9))
-            tegn_tekst(surf, str(v_h), (midtre-40, ry+1), f, P.LYSBLÅ_UI)
-            tegn_tekst(surf, label,    (midtre - Fonter.liten.size(label)[0]//2, ry+1),
+            pygame.draw.rect(surf, (28,28,44), (8, ry, W_BASE-16, 18))
+            tegn_tekst(surf, str(v_h), (midtre-80, ry+2), f, P.LYSBLÅ_UI)
+            tegn_tekst(surf, label,    (midtre - Fonter.liten.size(label)[0]//2, ry+2),
                         f, P.GRÅ_LYS)
-            tegn_tekst(surf, str(v_b), (midtre+30, ry+1), f, P.LYSBLÅ_UI)
+            tegn_tekst(surf, str(v_b), (midtre+60, ry+2), f, P.LYSBLÅ_UI)
 
-        rad("Ballbesittelse",  f"{bes_h}%",  f"{bes_b}%",  y0+2)
-        rad("Sjanser",         s.sjanser_hjemme,    s.sjanser_borte,    y0+13)
-        rad("Skudd",           s.skudd_hjemme,      s.skudd_borte,      y0+24)
-        rad("Skudd på mål",    s.skudd_paa_maal_hjemme, s.skudd_paa_maal_borte, y0+35)
-        rad("Gule kort",       s.gule_kort_hjemme,  s.gule_kort_borte,  y0+46)
-        rad("Røde kort",       s.røde_kort_hjemme,  s.røde_kort_borte,  y0+57)
+        rad("Ballbesittelse",  f"{bes_h}%",  f"{bes_b}%",  y0+4)
+        rad("Sjanser",         s.sjanser_hjemme,    s.sjanser_borte,    y0+26)
+        rad("Skudd",           s.skudd_hjemme,      s.skudd_borte,      y0+48)
+        rad("Skudd på mål",    s.skudd_paa_maal_hjemme, s.skudd_paa_maal_borte, y0+70)
+        rad("Gule kort",       s.gule_kort_hjemme,  s.gule_kort_borte,  y0+92)
+        rad("Røde kort",       s.røde_kort_hjemme,  s.røde_kort_borte,  y0+114)
 
         # Navnlinje
-        pygame.draw.rect(surf, P.BLÅL, (4, y0+70, W_BASE-8, 8))
+        pygame.draw.rect(surf, P.BLÅL, (8, y0+140, W_BASE-16, 16))
         t_h = Fonter.liten.render(r.hjemme_navn[:14], False, P.HVIT)
         t_b = Fonter.liten.render(r.borte_navn[:14],  False, P.HVIT)
-        surf.blit(t_h, (6, y0+71))
-        surf.blit(t_b, (W_BASE - t_b.get_width() - 6, y0+71))
+        surf.blit(t_h, (12, y0+142))
+        surf.blit(t_b, (W_BASE - t_b.get_width() - 12, y0+142))
 
     def _tegn_bors(self, surf, y0, h):
         f  = Fonter.liten
         alle = ([(s, True) for s in self.hjemme_spillere] +
                 [(s, False) for s in self.borte_spillere])
-        synlige = h // 10
+        synlige = h // 20
         start   = self._scroll
 
-        pygame.draw.rect(surf, P.BLÅL, (2, y0, W_BASE-4, 8))
-        tegn_tekst(surf, "SPILLER",  (4,  y0+1), f, P.HVIT)
-        tegn_tekst(surf, "LAG",      (150, y0+1), f, P.HVIT)
-        tegn_tekst(surf, "RATING",   (190, y0+1), f, P.HVIT)
+        pygame.draw.rect(surf, P.BLÅL, (4, y0, W_BASE-8, 16))
+        tegn_tekst(surf, "SPILLER",  (8,  y0+2), f, P.HVIT)
+        tegn_tekst(surf, "LAG",      (300, y0+2), f, P.HVIT)
+        tegn_tekst(surf, "RATING",   (380, y0+2), f, P.HVIT)
 
         for i, (s, er_hjemme) in enumerate(alle[start:start+synlige]):
-            ry     = y0 + 9 + i * 10
+            ry     = y0 + 18 + i * 20
             rating = self.resultat.statistikk.hent_rating(s)
             navn   = f"{getattr(s, 'fornavn','?')[0]}. {getattr(s,'etternavn','?')}"
             lag    = self.resultat.hjemme_navn[:6] if er_hjemme else self.resultat.borte_navn[:6]
 
             farge_rad = (34,34,48) if i%2==0 else (28,28,40)
-            pygame.draw.rect(surf, farge_rad, (2, ry, W_BASE-4, 9))
+            pygame.draw.rect(surf, farge_rad, (4, ry, W_BASE-8, 18))
 
             rtg_farge = (P.GRØNN if rating >= 7.5 else
                          P.GULT  if rating >= 6.5 else
                          P.RØD   if rating < 5.5 else P.GRÅ_LYS)
 
-            tegn_tekst(surf, navn[:20], (4,  ry+1), f, P.KREMHVIT)
-            tegn_tekst(surf, lag,       (150,ry+1), f, P.LYSBLÅ_UI)
-            tegn_badge(surf, f"{rating:.1f}", (190, ry+1), rtg_farge, P.SVART, f)
+            tegn_tekst(surf, navn[:20], (8,  ry+2), f, P.KREMHVIT)
+            tegn_tekst(surf, lag,       (300,ry+2), f, P.LYSBLÅ_UI)
+            tegn_badge(surf, f"{rating:.1f}", (380, ry+2), rtg_farge, P.SVART, f)
 
-        tegn_scrollbar(surf, W_BASE-6, y0+9, h-9, len(alle), synlige, self._scroll)
+        tegn_scrollbar(surf, W_BASE-12, y0+18, h-18, len(alle), synlige, self._scroll)
 
     def håndter_event(self, event, ui):
         fane_navn  = ["HENDELSER", "STATISTIKK", "SPILLERBØRS"]
@@ -1188,11 +1366,11 @@ class KamprapportSkjerm(SkjermData):
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             mx, my = ui.base_mus()
             for fi in range(3):
-                if 2+fi*106 <= mx <= 106+fi*106 and 37 <= my <= 46:
+                if 4+fi*212 <= mx <= 212+fi*212 and 74 <= my <= 92:
                     self._fane  = fi
                     self._scroll = 0
                     return
-            if my >= H_BASE-13:
+            if my >= H_BASE-26:
                 self.on_ferdig()
 
 
@@ -1223,19 +1401,19 @@ class InfoSkjerm(SkjermData):
         fb = Fonter.stor
 
         # Tittelramme
-        pygame.draw.rect(surf, (10, 18, 50, 200), (10, 20, W_BASE-20, 30))
-        pygame.draw.rect(surf, P.BLÅLL, (10, 20, W_BASE-20, 30), 2)
+        pygame.draw.rect(surf, (10, 18, 50, 200), (20, 40, W_BASE-40, 60))
+        pygame.draw.rect(surf, P.BLÅLL, (20, 40, W_BASE-40, 60), 4)
         t = fb.render(self.tittel_tekst, False, P.GULT)
-        surf.blit(t, (W_BASE//2 - t.get_width()//2, 27))
+        surf.blit(t, (W_BASE//2 - t.get_width()//2, 54))
 
         # Linjer
         for i, linje in enumerate(self.linjer[:10]):
-            tegn_tekst(surf, linje, (14, 60 + i*12), f, P.KREMHVIT)
+            tegn_tekst(surf, linje, (28, 120 + i*24), f, P.KREMHVIT)
 
-        tegn_knapp(surf, (W_BASE//2-40, H_BASE-20, 80, 14), "FORTSETT →",
+        tegn_knapp(surf, (W_BASE//2-80, H_BASE-40, 160, 28), "FORTSETT →",
                    Fonter.normal,
-                   hovered=ui.mus_innenfor(((W_BASE//2-40)*SKALA, (H_BASE-20)*SKALA,
-                                             80*SKALA, 14*SKALA)))
+                   hovered=ui.mus_innenfor(((W_BASE//2-80)*SKALA, (H_BASE-40)*SKALA,
+                                             160*SKALA, 28*SKALA)))
         _tegn_bunnlinje(surf, "ENTER / KLIKK FOR Å FORTSETTE")
 
     def håndter_event(self, event, ui):
@@ -1243,13 +1421,162 @@ class InfoSkjerm(SkjermData):
             self.on_ferdig()
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             mx, my = ui.base_mus()
-            if H_BASE-20 <= my <= H_BASE-6 and W_BASE//2-40 <= mx <= W_BASE//2+40:
+            if H_BASE-40 <= my <= H_BASE-12 and W_BASE//2-80 <= mx <= W_BASE//2+80:
                 self.on_ferdig()
 
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SKJERM: SPILLERKORT
+# ─────────────────────────────────────────────────────────────────────────────
+class SpillerkortSkjerm(SkjermData):
+    """
+    Fullskjerm spillerkort for én spiller. Vises når man klikker
+    på en spiller i SpillerstallSkjerm eller LaguttakSkjerm.
+    """
+    def __init__(self, spiller, spiller_liste: list, start_idx: int,
+                 stat_register, on_tilbake: Callable):
+        self.spiller_liste = spiller_liste
+        self.idx = start_idx
+        self.stat_register = stat_register
+        self.on_tilbake = on_tilbake
+        self.spiller = spiller
+
+    def _tegn_portrett(self, surf, x, y, pos_str):
+        # Tegner pikselsilhuett basert på posisjon
+        pygame.draw.rect(surf, P.NAVY, (x, y, 90, 90))
+        pygame.draw.rect(surf, P.BLÅL, (x, y, 90, 90), 2)
+
+        hx, hy = x + 45, y + 20
+        pygame.draw.circle(surf, P.KREMHVIT, (hx, hy), 12)  # Hode
+        pygame.draw.rect(surf, P.KREMHVIT, (hx-18, hy+14, 36, 40)) # Kropp
+
+        if pos_str == 'K':
+            pygame.draw.circle(surf, P.GRØNN, (hx-22, hy+30), 8) # Hansker
+            pygame.draw.circle(surf, P.GRØNN, (hx+22, hy+30), 8)
+        elif pos_str in ['SP', 'HA', 'VA']:
+            pygame.draw.circle(surf, P.HVIT, (hx+20, hy+40), 8) # Ball
+            pygame.draw.circle(surf, P.SVART, (hx+20, hy+40), 8, 1)
+
+    def _tegn_bar(self, surf, label, verdi, x, y, f):
+        tegn_tekst(surf, label, (x, y), f, P.KREMHVIT)
+        bar_x = x + 140
+        pygame.draw.rect(surf, P.GRÅ_MØRK, (bar_x, y + 2, 100, 10))
+
+        farge = P.GRØNN if verdi >= 14 else (P.GULT if verdi >= 10 else (P.ORANSJE if verdi >= 7 else P.RØD))
+        bredde = max(0, min(100, int((verdi / 20.0) * 100)))
+        if bredde > 0:
+            pygame.draw.rect(surf, farge, (bar_x, y + 2, bredde, 10))
+        tegn_tekst(surf, str(verdi), (bar_x + 106, y), f, P.HVIT)
+
+    def tegn(self, surf, ui):
+        _tegn_bakgrunn(surf, P.NAVY)
+        f = Fonter.normal
+        fb = Fonter.stor
+        fs = Fonter.liten
+        s = self.spiller
+
+        pos = getattr(s, 'primær_posisjon', None)
+        pos_str = pos.name if pos else '?'
+        klubb_navn = "?"
+        if hasattr(s, '_naavaerende_rolle') and s._naavaerende_rolle:
+            klubb_navn = ""
+
+        _tegn_topplinje(surf, s.fullt_navn, pos_str, klubb_navn)
+
+        # Portrett
+        self._tegn_portrett(surf, 20, 40, pos_str)
+
+        # Identitet
+        tegn_tekst(surf, f"Alder: {s.alder}", (130, 40), f, P.GRÅ_LYS)
+        tegn_tekst(surf, "Nasjonalitet: NOR", (130, 60), f, P.GRÅ_LYS)
+
+        kontr = getattr(s, 'kontrakt', None)
+        aar = getattr(kontr, 'utlops_aar', '?') if kontr else 'Ingen'
+        lonn = getattr(kontr, 'ukelonn', 0) if kontr else 0
+        tegn_tekst(surf, f"Kontrakt utløper: {aar}", (130, 80), f, P.GRÅ_LYS)
+        tegn_tekst(surf, f"Ukelønn: kr {lonn:,}", (130, 100), f, P.GRÅ_LYS)
+        tegn_tekst(surf, f"Markedsverdi: kr {s.markedsverdi_nok:,}", (130, 120), f, P.GRÅ_LYS)
+
+        # OVR-badge
+        pygame.draw.rect(surf, P.GRÅ_PANEL, (480, 40, 80, 80))
+        pygame.draw.rect(surf, P.BLÅL, (480, 40, 80, 80), 2)
+        tegn_tekst(surf, "OVR", (502, 50), f, P.GRÅ_LYS)
+        ovr = s.ferdighet
+        farge = P.GRØNN if ovr >= 14 else (P.GULT if ovr >= 10 else P.RØD)
+        t_ovr = Fonter.tittel.render(str(ovr), False, farge)
+        surf.blit(t_ovr, (520 - t_ovr.get_width()//2, 70))
+
+        tegn_linje_h(surf, P.GRÅ_MØRK, 20, 150, W_BASE - 40)
+
+        # Tekniske ferdigheter (venstre)
+        y0 = 160
+        x0_v = 20
+        self._tegn_bar(surf, "Skudd", s.skudd, x0_v, y0, f)
+        self._tegn_bar(surf, "Pasning", s.pasning, x0_v, y0+20, f)
+        self._tegn_bar(surf, "Dribling", s.dribling, x0_v, y0+40, f)
+        self._tegn_bar(surf, "Takling", s.takling, x0_v, y0+60, f)
+        self._tegn_bar(surf, "Hodespill", s.hodespill, x0_v, y0+80, f)
+        self._tegn_bar(surf, "Teknikk", s.teknikk, x0_v, y0+100, f)
+        self._tegn_bar(surf, "Dødball", s.dodball, x0_v, y0+120, f)
+        self._tegn_bar(surf, "Keeper", s.keeperferdighet, x0_v, y0+140, f)
+
+        # Fysiske & mentale (høyre)
+        x0_h = 320
+        self._tegn_bar(surf, "Fart", s.fart, x0_h, y0, f)
+        self._tegn_bar(surf, "Utholdenhet", s.utholdenhet, x0_h, y0+20, f)
+        self._tegn_bar(surf, "Fysikk", s.fysikk, x0_h, y0+40, f)
+        self._tegn_bar(surf, "Kreativitet", s.kreativitet, x0_h, y0+60, f)
+        self._tegn_bar(surf, "Aggressivitet", s.aggressivitet, x0_h, y0+80, f)
+        self._tegn_bar(surf, "Mentalitet", s.mentalitet, x0_h, y0+100, f)
+
+        # Sesongsstatistikk
+        tegn_linje_h(surf, P.GRÅ_MØRK, 20, 320, W_BASE - 40)
+        stat = None
+        if hasattr(self.stat_register, '_data'):
+            pid = getattr(s, 'id', str(id(s)))
+            stat = self.stat_register._data.get(pid)
+
+        if stat:
+            stat_tekst = f"SESONG:  Kamper: {stat.kamper}   Mål: {stat.mål}   Assist: {stat.assist}   Snitt-rtg: {stat.snitt_rating:.1f}"
+        else:
+            stat_tekst = "SESONG:  Ingen kamper spilt"
+        tegn_tekst(surf, stat_tekst, (20, 330), f, P.GULTL)
+
+        # Knapper
+        tegn_knapp(surf, (20, H_BASE-34, 100, 24), "◄ FORRIGE", f,
+                   hovered=ui.mus_innenfor((20*SKALA, (H_BASE-34)*SKALA, 100*SKALA, 24*SKALA)))
+        tegn_knapp(surf, (W_BASE//2-50, H_BASE-34, 100, 24), "TILBAKE", f,
+                   hovered=ui.mus_innenfor(((W_BASE//2-50)*SKALA, (H_BASE-34)*SKALA, 100*SKALA, 24*SKALA)))
+        tegn_knapp(surf, (W_BASE-120, H_BASE-34, 100, 24), "NESTE ►", f,
+                   hovered=ui.mus_innenfor(((W_BASE-120)*SKALA, (H_BASE-34)*SKALA, 100*SKALA, 24*SKALA)))
+
+    def håndter_event(self, event, ui):
+        if event.type == pygame.KEYDOWN:
+            if event.key in (pygame.K_ESCAPE, pygame.K_BACKSPACE):
+                self.on_tilbake()
+            elif event.key == pygame.K_LEFT:
+                self.idx = (self.idx - 1) % len(self.spiller_liste)
+                self.spiller = self.spiller_liste[self.idx]
+            elif event.key == pygame.K_RIGHT:
+                self.idx = (self.idx + 1) % len(self.spiller_liste)
+                self.spiller = self.spiller_liste[self.idx]
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            mx, my = ui.base_mus()
+            if H_BASE-34 <= my <= H_BASE-10:
+                if 20 <= mx <= 120:
+                    self.idx = (self.idx - 1) % len(self.spiller_liste)
+                    self.spiller = self.spiller_liste[self.idx]
+                elif W_BASE//2-50 <= mx <= W_BASE//2+50:
+                    self.on_tilbake()
+                elif W_BASE-120 <= mx <= W_BASE-20:
+                    self.idx = (self.idx + 1) % len(self.spiller_liste)
+                    self.spiller = self.spiller_liste[self.idx]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SKJERM: ANDRE RESULTATER (rask gjennomkjøring)
 # ─────────────────────────────────────────────────────────────────────────────
+
 class AndreResultaterSkjerm(SkjermData):
     def __init__(self, resultater: list[tuple[str,int,str,int]], dato_str: str,
                  on_ferdig: Callable):
@@ -1265,19 +1592,19 @@ class AndreResultaterSkjerm(SkjermData):
         fb = Fonter.normal
 
         for i, (h, hm, b, bm) in enumerate(self.resultater[:14]):
-            ry = 18 + i * 12
+            ry = 36 + i * 24
             farge_rad = (34,34,48) if i % 2 == 0 else (28,28,44)
-            pygame.draw.rect(surf, farge_rad, (4, ry, W_BASE-8, 11))
+            pygame.draw.rect(surf, farge_rad, (8, ry, W_BASE-16, 22))
             score = f"{hm} – {bm}"
-            tegn_tekst(surf, h[:16],   (6,   ry+2), f, P.KREMHVIT)
-            tegn_tekst(surf, score,    (W_BASE//2 - 12, ry+2), fb, P.GULT)
+            tegn_tekst(surf, h[:16],   (12,   ry+4), f, P.KREMHVIT)
+            tegn_tekst(surf, score,    (W_BASE//2 - 24, ry+4), fb, P.GULT)
             t_b = f.render(b[:16], False, P.KREMHVIT)
-            surf.blit(t_b, (W_BASE - t_b.get_width() - 6, ry+2))
+            surf.blit(t_b, (W_BASE - t_b.get_width() - 12, ry+4))
 
-        tegn_knapp(surf, (W_BASE//2-30, H_BASE-14, 60, 12), "OK →",
+        tegn_knapp(surf, (W_BASE//2-60, H_BASE-28, 120, 24), "OK →",
                    Fonter.normal,
-                   hovered=ui.mus_innenfor(((W_BASE//2-30)*SKALA, (H_BASE-14)*SKALA,
-                                             60*SKALA, 12*SKALA)))
+                   hovered=ui.mus_innenfor(((W_BASE//2-60)*SKALA, (H_BASE-28)*SKALA,
+                                             120*SKALA, 24*SKALA)))
         _tegn_bunnlinje(surf, "ENTER = FORTSETT")
 
     def håndter_event(self, event, ui):
@@ -1313,8 +1640,8 @@ class SesongsSluttSkjerm(SkjermData):
         fs = Fonter.liten
 
         t1 = fb.render("SESONGEN ER OVER", False, P.GULT)
-        surf.blit(t1, (W_BASE//2 - t1.get_width()//2, 14))
-        pygame.draw.rect(surf, P.BLÅL, (0, 30, W_BASE, 1))
+        surf.blit(t1, (W_BASE//2 - t1.get_width()//2, 28))
+        pygame.draw.rect(surf, P.BLÅL, (0, 60, W_BASE, 2))
 
         hist    = self.resultater
         seiere  = hist.count("S")
@@ -1322,7 +1649,14 @@ class SesongsSluttSkjerm(SkjermData):
         tap     = hist.count("T")
         poeng   = seiere*3 + uavgjort
 
-        tegn_tekst(surf, self.klubb_navn, (8, 36), f, P.KREMHVIT)
+
+        manager_str = ""
+        if hasattr(ui, 'manager_fornavn') and ui.manager_fornavn:
+            manager_str = f"Manager: {ui.manager_fornavn} {ui.manager_etternavn}"
+
+        tegn_tekst(surf, self.klubb_navn, (16, 72), f, P.KREMHVIT)
+        if manager_str:
+            tegn_tekst(surf, manager_str, (16, 88), f, P.LYSBLÅ_UI)
 
         stats = [
             ("Kamper spilt:",  str(len(hist))),
@@ -1332,28 +1666,28 @@ class SesongsSluttSkjerm(SkjermData):
             ("Poeng:",         str(poeng)),
         ]
         for i, (label, verdi) in enumerate(stats):
-            ry = 50 + i*12
-            tegn_tekst(surf, label, (8, ry), fs, P.GRÅ_LYS)
-            tegn_tekst(surf, verdi, (130, ry), f, P.GULT)
+            ry = 100 + i*24
+            tegn_tekst(surf, label, (16, ry), fs, P.GRÅ_LYS)
+            tegn_tekst(surf, verdi, (260, ry), f, P.GULT)
 
         # Tabellplassering
         if self.tabell:
             plass = self.tabell.plass(self.klubb_navn)
-            pygame.draw.rect(surf, (10, 18, 50), (4, 118, W_BASE-8, 16))
+            pygame.draw.rect(surf, (10, 18, 50), (8, 236, W_BASE-16, 32))
             tegn_tekst(surf, f"ENDELIG TABELLPLASS: {plass}. PLASS",
-                        (8, 122), f, P.CYANL)
+                        (16, 244), f, P.CYANL)
 
-        tegn_knapp(surf, (W_BASE//2-40, H_BASE-20, 80, 14), "AVSLUTT",
+        tegn_knapp(surf, (W_BASE//2-80, H_BASE-40, 160, 28), "AVSLUTT",
                    Fonter.normal,
-                   hovered=ui.mus_innenfor(((W_BASE//2-40)*SKALA, (H_BASE-20)*SKALA,
-                                             80*SKALA, 14*SKALA)))
+                   hovered=ui.mus_innenfor(((W_BASE//2-80)*SKALA, (H_BASE-40)*SKALA,
+                                             160*SKALA, 28*SKALA)))
 
     def håndter_event(self, event, ui):
         if event.type == pygame.KEYDOWN and event.key in (pygame.K_RETURN, pygame.K_ESCAPE):
             self.on_avslutt()
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             mx, my = ui.base_mus()
-            if H_BASE-20 <= my <= H_BASE-6:
+            if H_BASE-40 <= my <= H_BASE-12:
                 self.on_avslutt()
 
 
