@@ -22,6 +22,7 @@ from typing import Optional
 from person import Person, SpillerRolle
 from klubb import Klubb, Stadion
 from taktikk import Posisjon, POSISJON_GRUPPE
+from navn import trekk_navn
 
 # =============================================================================
 # STIER
@@ -42,20 +43,6 @@ MINIMUM_PER_GRUPPE = {
     "A": 4,
 }
 MINIMUM_TOTALT = sum(MINIMUM_PER_GRUPPE.values())   # 18
-
-# Norske fornavn og etternavn for genererte spillere
-FORNAVN = [
-    "Magnus", "Erik", "Lars", "Ole", "Jonas", "Kristian", "Andreas", "Håkon",
-    "Sander", "Tobias", "Mathias", "Martin", "Henrik", "Sindre", "Markus",
-    "Steffen", "Joakim", "Eirik", "Torbjørn", "Vegard", "Petter", "Rune",
-    "Espen", "Trond", "Øyvind", "Bjørn", "Stian", "Thomas", "Morten", "Geir",
-]
-ETTERNAVN = [
-    "Hansen", "Johansen", "Olsen", "Larsen", "Andersen", "Pedersen", "Nilsen",
-    "Kristiansen", "Jensen", "Karlsen", "Haugen", "Bakke", "Hagen", "Eriksen",
-    "Berg", "Strand", "Moen", "Dahl", "Lund", "Sørensen", "Lie", "Holm",
-    "Nygaard", "Berge", "Solberg", "Thorsen", "Aas", "Halvorsen", "Vold", "Ask",
-]
 
 # Posisjoner per gruppe — brukes ved generering
 POSISJONER_PER_GRUPPE: dict[str, list[str]] = {
@@ -150,23 +137,12 @@ def _alder_for_posisjon(gruppe: str) -> int:
 # =============================================================================
 # GENERERING AV ENKELTSPILLER
 # =============================================================================
-_brukte_navn: set[str] = set()
 _id_teller: int = 0
 
 
 def _generer_navn() -> tuple[str, str]:
     """Trekker et unikt for- og etternavn."""
-    global _id_teller
-    for _ in range(100):
-        fornavn   = random.choice(FORNAVN)
-        etternavn = random.choice(ETTERNAVN)
-        nøkkel    = f"{fornavn}_{etternavn}"
-        if nøkkel not in _brukte_navn:
-            _brukte_navn.add(nøkkel)
-            return fornavn, etternavn
-    # Fallback med teller
-    _id_teller += 1
-    return "Spiller", f"Nr{_id_teller:03d}"
+    return trekk_navn()
 
 
 def _generer_spiller(
