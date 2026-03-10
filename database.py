@@ -148,25 +148,14 @@ def _generer_navn() -> tuple[str, str]:
 def _generer_spiller(
     lag_id: str,
     historisk_styrke: int,
+    divisjon: str,
     gruppe: str,
     spiller_id: Optional[str] = None,
 ) -> dict:
     """
     Genererer én komplett spillerdict klar til lagring og innlasting.
     """
-    fornavn, etternavn = _generer_navn()
-    primær = random.choice(POSISJONER_PER_GRUPPE[gruppe])
-    sek_kandidater = NATURLIG_SEKUNDÆR.get(primær, [])
-    sekundær = random.choice(sek_kandidater) if sek_kandidater and random.random() < 0.4 else None
-    attributter = _generer_attributter_for_posisjon(gruppe, historisk_styrke)
-    personl = _personlighet()
-    
-    # Sett potensial til å være minst like høyt som nåværende evne, ofte høyere for unge
-    snitt_ferdighet = sum(attributter.values()) / len(attributter)
-    alder = _alder_for_posisjon(gruppe)
-    potensial_bonus = max(0, (25 - alder) // 2) + random.randint(0, 3)
-    potensial = min(20, round(snitt_ferdighet + potensial_bonus))
-
+    from person import lag_spiller
     global _id_teller
     if not spiller_id:
         _id_teller += 1
@@ -174,20 +163,47 @@ def _generer_spiller(
     else:
         sid = spiller_id
 
-    return {
-        "id": sid,
-        "fornavn": fornavn,
-        "etternavn": etternavn,
-        "alder": alder,
-        "lag_id": lag_id,
-        "primær_posisjon": primær,
-        "sekundær_posisjon": sekundær,
-        "potensial": potensial,
-        "rykte": historisk_styrke + random.randint(-2, 2),
-        **attributter,  # Pakker ut alle 14 ferdighetene!
-        **personl,
-        "_generert": True,
-    }
+    primær = random.choice(POSISJONER_PER_GRUPPE[gruppe])
+    pos_enum = Posisjon[primær]
+
+    # Bestem mål-OVR basert på divisjon
+    if divisjon == "Eliteserien":
+        ovr_min, ovr_max = 11, 17
+    elif divisjon == "OBOS-ligaen":
+        ovr_min, ovr_max = 9, 14
+    elif divisjon == "Div 2" or divisjon == "PostNord-ligaen":
+        ovr_min, ovr_max = 7, 11
+    else:
+        ovr_min, ovr_max = 5, 9
+
+    # Juster internt i divisjonen basert på historisk_styrke (1-20 skala typisk)
+    faktor = max(0.0, min(1.0, (historisk_styrke - 5) / 15.0))
+    ovr_mål = int(ovr_min + (ovr_max - ovr_min) * faktor)
+
+    variasjon = random.choice([2, 3])
+
+    alder = _alder_for_posisjon(gruppe)
+    fornavn, etternavn = _generer_navn()
+
+    p = lag_spiller(
+        id=sid,
+        posisjon=pos_enum,
+        ovr_mål=ovr_mål,
+        variasjon=variasjon,
+        alder=alder,
+        fornavn=fornavn,
+        etternavn=etternavn
+    )
+
+    sek_kandidater = NATURLIG_SEKUNDÆR.get(primær, [])
+    sekundær = random.choice(sek_kandidater) if sek_kandidater and random.random() < 0.4 else None
+
+    # Hent dicten fra det genererte Person-objektet
+    d = p.til_dict()
+    d["lag_id"] = lag_id
+    d["sekundær_posisjon"] = sekundær
+    d["_generert"] = True
+    return d
 
 def _generer_attributter_for_posisjon(gruppe: str, base_styrke: int) -> dict:
     """
@@ -230,6 +246,7 @@ def _fyll_inn_nullverdier(spiller_dict: dict, historisk_styrke: int) -> dict:
     Erstatter 0-verdier med genererte verdier.
     Berører aldri felt som allerede har en verdi != 0.
     """
+    from person import _FERDIGHET_ATTRS
     d = dict(spiller_dict)
 
     if d.get("ferdighet", 0) == 0:
@@ -242,6 +259,17 @@ def _fyll_inn_nullverdier(spiller_dict: dict, historisk_styrke: int) -> dict:
         if d.get(felt, 0) == 0:
             d[felt] = _normalfordelt(10, 3.5)
 
+    # Populer tekniske attributter fra generer-funksjonen hvis de mangler
+    primær = d.get("primær_posisjon", "SM")
+    gruppe = POSISJON_GRUPPE.get(Posisjon[primær], "M") if primær in Posisjon.__members__ else "M"
+
+    # Vi bruker ferdighet som 'base_styrke' i _generer_attributter_for_posisjon
+    genererte_attrs = _generer_attributter_for_posisjon(gruppe, d["ferdighet"])
+
+    for attr in _FERDIGHET_ATTRS:
+        if d.get(attr, 0) == 0:
+            d[attr] = genererte_attrs.get(attr, d["ferdighet"])
+
     return d
 
 
@@ -250,16 +278,23 @@ def _fyll_inn_nullverdier(spiller_dict: dict, historisk_styrke: int) -> dict:
 # =============================================================================
 def _bygg_person(d: dict, klubb: Klubb, sesong_aar: int) -> Person:
     """Konverterer en spillerdict til et Person-objekt med SpillerRolle."""
+
+    from person import _FERDIGHET_ATTRS
+    ferdigheter = {}
+    for attr in _FERDIGHET_ATTRS:
+        if attr in d:
+            ferdigheter[attr] = d[attr]
+
     person = Person(
         id            = d["id"],
         fornavn       = d["fornavn"],
         etternavn     = d["etternavn"],
         alder         = d["alder"],
-        lojalitet     = d["lojalitet"],
-        egoisme       = d["egoisme"],
-        presstoleranse= d["presstoleranse"],
-        arbeidsvilje  = d["arbeidsvilje"],
-        utholdenhet   = d["utholdenhet"],
+        lojalitet     = d.get("lojalitet", 10),
+        egoisme       = d.get("egoisme", 10),
+        presstoleranse= d.get("presstoleranse", 10),
+        arbeidsvilje  = d.get("arbeidsvilje", 10),
+        **ferdigheter
     )
 
     primær_pos = Posisjon[d["primær_posisjon"]]
@@ -386,7 +421,7 @@ def last_database(
         for gruppe, minimum in MINIMUM_PER_GRUPPE.items():
             mangler = minimum - antall_per_gruppe[gruppe]
             for _ in range(mangler):
-                ny = _generer_spiller(lag_id, styrke, gruppe)
+                ny = _generer_spiller(lag_id, styrke, klubb.divisjon, gruppe)
                 spillere_per_lag[lag_id].append(ny)
                 nye_genererte.append(ny)
 

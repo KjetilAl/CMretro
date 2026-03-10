@@ -164,6 +164,10 @@ class SpillmotorPygame:
         self._tabell                 = None
         self._stat_register          = SpillerStatistikkRegister()
         self._builder: Optional[TroppBuilder] = None   # Lagret mellom kamp og laguttak
+        self.manager_fornavn         = ""
+        self.manager_etternavn       = ""
+        self.ui.manager_fornavn      = ""
+        self.ui.manager_etternavn    = ""
 
     # =========================================================================
     # OPPSTART
@@ -189,6 +193,20 @@ class SpillmotorPygame:
         if self.spiller_klubb is None:
             self._rydd_opp()
             return
+
+        ferdig_manager = {"v": False}
+        def _manager_ferdig(fornavn, etternavn):
+            self.manager_fornavn = fornavn
+            self.manager_etternavn = etternavn
+            self.ui.manager_fornavn = fornavn
+            self.ui.manager_etternavn = etternavn
+            ferdig_manager["v"] = True
+
+        from ui_pygame import OpprettManagerSkjerm
+        self.ui.bytt_skjerm(OpprettManagerSkjerm(self.spiller_klubb.navn, _manager_ferdig))
+        while self.ui.tikk():
+            if ferdig_manager["v"]:
+                break
 
         # Bygg ligasystem og kalender
         self._bygg_liga_og_kalender()
@@ -216,16 +234,27 @@ class SpillmotorPygame:
 
             self.klubber = last_database(sesong_aar=SESONG_AAR, verbose=False)
 
-        elitelag = sorted(
-            [k for k in self.klubber.values()
-             if getattr(k, 'divisjon', '') == 'Eliteserien'],
-            key=lambda k: getattr(k, 'historisk_styrke', 0), reverse=True
-        )
+        DIVISJON_REKKEFØLGE = {
+            'Eliteserien': 0, 'OBOS-ligaen': 1,
+            'Div 2': 2, 'Div 3': 3,
+        }
+
+        # Grupper lag per divisjon
+        klubber_per_div = {}
+        for k in self.klubber.values():
+            div = getattr(k, 'divisjon', 'Ukjent')
+            klubber_per_div.setdefault(div, []).append(k)
+
+        alle_lag_sortert = []
+        for div in sorted(klubber_per_div.keys(), key=lambda d: DIVISJON_REKKEFØLGE.get(d, 99)):
+            alle_lag_sortert.append(div)  # String-separator
+            lag_i_div = sorted(klubber_per_div[div], key=lambda k: getattr(k, 'historisk_styrke', 0), reverse=True)
+            alle_lag_sortert.extend(lag_i_div)
 
         def _valgt(klubb):
             self.spiller_klubb = klubb
 
-        return VelgKlubbSkjerm(elitelag, on_valgt=_valgt)
+        return VelgKlubbSkjerm(alle_lag_sortert, on_valgt=_valgt)
 
     def _bygg_liga_og_kalender(self):
         """Bygger ligasystem, kalender og tabell etter at klubb er valgt."""
@@ -250,14 +279,18 @@ class SpillmotorPygame:
 
         self.kalender.populer_serierunder(kombinert)
 
-        # Opprett tabell for Eliteserien
-        self._tabell = Seriatabell("Eliteserien")
-        for k in [k for k in self.klubber.values()
-                   if getattr(k, 'divisjon', '') == 'Eliteserien']:
-            self._tabell.registrer_klubb(getattr(k, 'navn', '?'))
+        # Opprett tabeller for alle divisjoner
+        self._tabeller = {}
+        for k in self.klubber.values():
+            div = getattr(k, 'divisjon', 'Ukjent')
+            if div not in self._tabeller:
+                self._tabeller[div] = Seriatabell(div)
+                self._tabeller[div]._statistikk_register = self._stat_register
+            self._tabeller[div].registrer_klubb(getattr(k, 'navn', '?'))
 
-        # Koble statistikk-register til tabell (for ToppscorereFane)
-        self._tabell._statistikk_register = self._stat_register
+        # Oppdater self._tabell med tabellen til spillerens klubb, for bakoverkompatibilitet
+        spiller_div = getattr(self.spiller_klubb, 'divisjon', 'Eliteserien')
+        self._tabell = self._tabeller.get(spiller_div)
 
     # =========================================================================
     # GAME LOOP
@@ -293,7 +326,43 @@ class SpillmotorPygame:
     # =========================================================================
     # HENDELSESDAG
     # =========================================================================
+    def _simuler_alle_andre_kamper(self, dag):
+        """
+        Simulerer alle kamper på denne dagen som ikke involverer
+        spillerens klubb. Bruker KampMotor med AI-oppstillinger.
+        Oppdaterer kamp.registrer_resultat() og tabell.
+        """
+        for kamp in getattr(dag, 'kamper', []):
+            hjemme = getattr(kamp, 'hjemme', None)
+            borte  = getattr(kamp, 'borte', None)
+            if hjemme is None or borte is None:
+                continue
+            if hjemme == self.spiller_klubb or borte == self.spiller_klubb:
+                continue
+            if getattr(kamp, 'spilt', False) or getattr(kamp, 'resultat', None) is not None:
+                continue
+            try:
+                h_builder = TroppBuilder(hjemme)
+                b_builder = TroppBuilder(borte)
+                h_opp     = h_builder.bygg_oppstilling()
+                b_opp     = b_builder.bygg_oppstilling()
+                motor     = KampMotor(tillat_ekstraomganger=False)
+                resultat  = motor.spill_kamp(hjemme, borte, h_opp, b_opp)
+                kamp.registrer_resultat(resultat.hjemme_maal, resultat.borte_maal)
+
+                div_hjemme = getattr(hjemme, 'divisjon', 'Ukjent')
+                if hasattr(self, '_tabeller') and div_hjemme in self._tabeller:
+                    self._tabeller[div_hjemme].registrer_resultat(resultat)
+
+                if hasattr(self, '_stat_register'):
+                    self._stat_register.oppdater_fra_kampresultat(resultat)
+            except Exception as e:
+                # Ikke krasj hvis AI-simulering feiler for ett lag
+                pass
+
     def _vis_hendelsesdag(self, dag, dato: datetime.date):
+        self._simuler_alle_andre_kamper(dag)
+
         har_kamp    = dag.har_kamper if hasattr(dag, 'har_kamper') else bool(dag.kamper)
         mine_kamper = [
             k for k in dag.kamper
@@ -388,11 +457,29 @@ class SpillmotorPygame:
             if ferdig["verdi"]:
                 break
 
+    def _vis_spillerkort(self, spiller, spiller_liste, idx, on_tilbake=None):
+        from ui_pygame import SpillerkortSkjerm
+        def _tilbake():
+            self.ui.pop_skjerm()
+            if on_tilbake:
+                on_tilbake()
+
+        self.ui.push_skjerm(
+            SpillerkortSkjerm(
+                spiller=spiller,
+                spiller_liste=spiller_liste,
+                start_idx=idx,
+                stat_register=self._stat_register,
+                on_tilbake=_tilbake
+            )
+        )
+
     def _vis_laguttak(self, builder: TroppBuilder, motstandernavn: str,
                        on_ferdig: callable):
         self.ui.push_skjerm(
             LaguttakSkjerm(builder, motstandernavn,
-                            on_ferdig=lambda: self.ui.pop_skjerm() or on_ferdig())
+                            on_ferdig=lambda: self.ui.pop_skjerm() or on_ferdig(),
+                            on_spillerkort=lambda s, l, i: self._vis_spillerkort(s, l, i))
         )
 
     def _vis_spillerstall(self, on_tilbake: callable):
@@ -400,16 +487,17 @@ class SpillmotorPygame:
             SpillerstallSkjerm(
                 self.spiller_klubb,
                 on_tilbake=lambda: self.ui.pop_skjerm() or on_tilbake(),
+                on_spillerkort=lambda s, l, i: self._vis_spillerkort(s, l, i)
             )
         )
 
     def _vis_tabell(self, on_tilbake: callable):
-        if self._tabell is None:
+        if not hasattr(self, '_tabeller') or not self._tabeller:
             on_tilbake()
             return
         self.ui.push_skjerm(
             TabellSkjerm(
-                self._tabell,
+                self._tabeller,
                 spiller_klubb_navn=getattr(self.spiller_klubb, 'navn', ''),
                 on_tilbake=lambda: self.ui.pop_skjerm() or on_tilbake(),
             )
@@ -436,8 +524,15 @@ class SpillmotorPygame:
         kamp.registrer_resultat(resultat.hjemme_maal, resultat.borte_maal)
 
         # Oppdater tabell
-        if self._tabell:
-            self._tabell.registrer_resultat(resultat)
+        div_hjemme = getattr(hjemme_klubb, 'divisjon', 'Ukjent')
+        div_borte = getattr(borte_klubb, 'divisjon', 'Ukjent')
+        if hasattr(self, '_tabeller'):
+            if div_hjemme in self._tabeller:
+                self._tabeller[div_hjemme].registrer_resultat(resultat)
+            # Hvis lagene mot formodning spiller tvers av divisjoner (f.eks cup),
+            # vil vi i utgangspunktet bare registrere seriekamper i tabellen.
+            # Metoden registrer_resultat i Seriatabell legger uansett til begge lag.
+            # For sikkerhets skyld, hvis det er seriekamp, er div_hjemme == div_borte.
 
         # Oppdater spillerstatistikk
         self._stat_register.oppdater_fra_kampresultat(resultat)
