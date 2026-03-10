@@ -1,0 +1,566 @@
+"""
+spillmotor_pygame.py  —  Norsk Football Manager '95
+Erstatter spillmotor.py sin terminal-I/O med pygame-basert UIMotor.
+
+Alle _meny(), _input(), _vent() og print() er fjernet.
+Logikken fra TroppBuilder og Spillmotor er beholdt intakt —
+kun presentasjonslaget er byttet ut.
+"""
+
+from __future__ import annotations
+
+import datetime
+import random
+import sys
+from typing import Optional, Any
+
+# ── Spill-moduler ──────────────────────────────────────────────────────────
+from database     import last_database, hent_spilleklar_tropp
+from kalender     import SpillKalender, KalenderHendelse
+from kampmotor    import KampMotor
+from hendelser    import HendelsesManager
+from taktikk      import TAKTIKK_KATALOG, Oppstilling, Posisjon, POSISJON_GRUPPE
+from liga         import LigaSystem, opprett_ligasystem, populer_ligasystem_fra_db
+from person       import Person
+from tabell       import Seriatabell, SpillerStatistikkRegister
+
+# ── UI ─────────────────────────────────────────────────────────────────────
+from ui_pygame import (
+    UIMotor,
+    HovedmenySkjerm,
+    VelgKlubbSkjerm,
+    KampdagSkjerm,
+    LaguttakSkjerm,
+    SpillerstallSkjerm,
+    TabellSkjerm,
+    KamprapportSkjerm,
+    InfoSkjerm,
+    AndreResultaterSkjerm,
+    SesongsSluttSkjerm,
+)
+
+# =============================================================================
+# KONSTANTER
+# =============================================================================
+SESONG_AAR     = 2025
+BENK_STØRRELSE = 7
+KOND_GOD       = 90.0
+KOND_OK        = 75.0
+KOND_LITEN     = 60.0
+
+
+# =============================================================================
+# TROPP-BUILDER  (uendret logikk fra spillmotor.py)
+# =============================================================================
+class TroppBuilder:
+    def __init__(self, klubb, formasjon_navn: str = "4-3-3"):
+        self.klubb          = klubb
+        self.formasjon_navn = formasjon_navn
+        self.startellever: list[Person] = []
+        self.benk: list[Person]         = []
+        self._bygg_forslag()
+
+    def _bygg_forslag(self):
+        formasjon = TAKTIKK_KATALOG.get(
+            self.formasjon_navn, next(iter(TAKTIKK_KATALOG.values())))
+        tropp = hent_spilleklar_tropp(self.klubb)
+
+        plassert = set()
+        ellever  = []
+
+        sone_rekkefølge = {"forsvar": 0, "midtbane": 1, "angrep": 2}
+        slots = sorted(
+            formasjon.slots if hasattr(formasjon, 'slots') else [],
+            key=lambda s: sone_rekkefølge.get(getattr(s, 'sone', 'midtbane'), 1)
+        )
+
+        for slot in slots:
+            beste = self._finn_beste_for_slot(slot.posisjon, tropp, plassert)
+            if beste:
+                ellever.append(beste)
+                plassert.add(id(beste))
+
+        for s in tropp:
+            if len(ellever) >= 11:
+                break
+            if id(s) not in plassert:
+                ellever.append(s)
+                plassert.add(id(s))
+
+        self.startellever = ellever[:11]
+
+        benk_kandidater = [
+            s for s in sorted(tropp, key=lambda x: getattr(x, 'ferdighet', 0), reverse=True)
+            if id(s) not in plassert
+        ]
+        self.benk = benk_kandidater[:BENK_STØRRELSE]
+
+    def _finn_beste_for_slot(self, slot, tropp, plassert) -> Optional[Person]:
+        from taktikk import KOMPATIBLE_POSISJONER
+        kandidater = []
+        for s in tropp:
+            if id(s) in plassert:
+                continue
+            primær   = getattr(s, 'primær_posisjon', None)
+            sekundær = getattr(s, 'sekundær_posisjon', None)
+            if primær == slot:
+                eff = 1.00
+            elif sekundær == slot:
+                eff = 0.85
+            elif primær and slot in KOMPATIBLE_POSISJONER.get(primær, set()):
+                eff = 0.81
+            else:
+                continue
+            score = (getattr(s, 'ferdighet', 0) * eff
+                     * (getattr(s, 'kondisjon', 100) / 100))
+            kandidater.append((score, s))
+        if not kandidater:
+            return None
+        return max(kandidater, key=lambda x: x[0])[1]
+
+    def bytt_spiller(self, start_idx: int, benk_idx: int) -> bool:
+        if not (0 <= start_idx < len(self.startellever)):
+            return False
+        if not (0 <= benk_idx < len(self.benk)):
+            return False
+        self.startellever[start_idx], self.benk[benk_idx] = \
+            self.benk[benk_idx], self.startellever[start_idx]
+        return True
+
+    def bytt_formasjon(self, ny: str) -> bool:
+        if ny not in TAKTIKK_KATALOG:
+            return False
+        self.formasjon_navn = ny
+        self._bygg_forslag()
+        return True
+
+    def bygg_oppstilling(self) -> Oppstilling:
+        formasjon = TAKTIKK_KATALOG[self.formasjon_navn]
+        slots     = formasjon.slots if hasattr(formasjon, 'slots') else []
+        plasseringer = {}
+        for i, slot in enumerate(slots[:11]):
+            if i < len(self.startellever):
+                plasseringer[slot.posisjon] = self.startellever[i]
+        return Oppstilling(formasjon=formasjon, plasseringer=plasseringer)
+
+
+# =============================================================================
+# PYGAME SPILLMOTOR
+# =============================================================================
+class SpillmotorPygame:
+    """
+    Koordinator — eier alle moduler, kjører pygame event-loop.
+    Bruker UIMotor for all visning og input.
+    """
+
+    def __init__(self):
+        self.ui              = UIMotor()
+        self.klubber: dict   = {}
+        self.spiller_klubb   = None
+        self.kalender: SpillKalender = None
+        self.liga: LigaSystem        = None
+        self.hendelser               = HendelsesManager()
+        self._kjører: bool           = False
+        self._tabell                 = None
+        self._stat_register          = SpillerStatistikkRegister()
+        self._builder: Optional[TroppBuilder] = None   # Lagret mellom kamp og laguttak
+
+    # =========================================================================
+    # OPPSTART
+    # =========================================================================
+    def start(self):
+        """Inngangspunkt. Viser splash, deretter velg-klubb, deretter game loop."""
+        valgt = {"ferdig": False}
+
+        def _gå_til_velg():
+            self.ui.bytt_skjerm(self._lag_velg_klubb_skjerm())
+
+        def _avslutt():
+            self.ui.avslutt()
+
+        self.ui.tøm_og_sett(HovedmenySkjerm(on_start=_gå_til_velg,
+                                              on_avslutt=_avslutt))
+
+        # Kjør loop til database er lastet og klubb er valgt
+        while self.ui.tikk():
+            if self.spiller_klubb is not None:
+                break
+
+        if self.spiller_klubb is None:
+            self._rydd_opp()
+            return
+
+        # Bygg ligasystem og kalender
+        self._bygg_liga_og_kalender()
+
+        # Kjør selve spillet
+        self._kjører = True
+        self._game_loop()
+        self._rydd_opp()
+
+    def _rydd_opp(self):
+        import pygame
+        pygame.quit()
+
+    # ── Database + Velg klubb ─────────────────────────────────────────────
+    def _lag_velg_klubb_skjerm(self) -> VelgKlubbSkjerm:
+        """Laster database (første gang) og returnerer VelgKlubbSkjerm."""
+        if not self.klubber:
+            # Vis lasteinfo-skjerm mens database lastes
+            self.ui.bytt_skjerm(InfoSkjerm(
+                "LASTER DATABASE",
+                ["Genererer spillere og klubber...", "Vennligst vent."],
+                on_ferdig=lambda: None,
+            ))
+            self.ui.tikk()   # Vis lastebildet én frame
+
+            self.klubber = last_database(sesong_aar=SESONG_AAR, verbose=False)
+
+        elitelag = sorted(
+            [k for k in self.klubber.values()
+             if getattr(k, 'divisjon', '') == 'Eliteserien'],
+            key=lambda k: getattr(k, 'historisk_styrke', 0), reverse=True
+        )
+
+        def _valgt(klubb):
+            self.spiller_klubb = klubb
+
+        return VelgKlubbSkjerm(elitelag, on_valgt=_valgt)
+
+    def _bygg_liga_og_kalender(self):
+        """Bygger ligasystem, kalender og tabell etter at klubb er valgt."""
+        self.liga = opprett_ligasystem()
+        populer_ligasystem_fra_db(self.liga, list(self.klubber.values()))
+
+        self.kalender = SpillKalender(start_aar=SESONG_AAR)
+        self.hendelser.sett_dato(datetime.date(SESONG_AAR, 1, 1))
+
+        # Bygg kombinert terminliste
+        kombinert = [[] for _ in range(len(self.liga.eliteserien.terminliste))]
+        for r in range(len(self.liga.eliteserien.terminliste)):
+            kombinert[r].extend(self.liga.eliteserien.terminliste[r])
+            if r < len(self.liga.obos.terminliste):
+                kombinert[r].extend(self.liga.obos.terminliste[r])
+            for avd in self.liga.div_2:
+                if r < len(avd.terminliste):
+                    kombinert[r].extend(avd.terminliste[r])
+            for avd in self.liga.div_3:
+                if r < len(avd.terminliste):
+                    kombinert[r].extend(avd.terminliste[r])
+
+        self.kalender.populer_serierunder(kombinert)
+
+        # Opprett tabell for Eliteserien
+        self._tabell = Seriatabell("Eliteserien")
+        for k in [k for k in self.klubber.values()
+                   if getattr(k, 'divisjon', '') == 'Eliteserien']:
+            self._tabell.registrer_klubb(getattr(k, 'navn', '?'))
+
+        # Koble statistikk-register til tabell (for ToppscorereFane)
+        self._tabell._statistikk_register = self._stat_register
+
+    # =========================================================================
+    # GAME LOOP
+    # =========================================================================
+    def _game_loop(self):
+        """Tikker én dag om gangen. Stopper kun på hendelsesdager."""
+        while self._kjører and self.ui.tikk():
+            dag  = self.kalender.simuler_neste_dag()
+            dato = self.kalender.dagens_dato
+            self.hendelser.sett_dato(dato)
+
+            self._hvil_alle(dag)
+
+            if not dag.har_innhold:
+                if dato >= datetime.date(SESONG_AAR, 12, 31):
+                    self._sesong_slutt()
+                    break
+                continue
+
+            # Hendelsesdag — vis UI og vent
+            self._vis_hendelsesdag(dag, dato)
+
+    def _hvil_alle(self, dag):
+        for klubb in self.klubber.values():
+            for spiller in klubb.spillerstall:
+                var_skadet = getattr(spiller, 'skadet', False)
+                if hasattr(spiller, 'hvil_en_dag'):
+                    spiller.hvil_en_dag()
+                er_frisk = not getattr(spiller, 'skadet', False)
+                if var_skadet and er_frisk:
+                    self.hendelser.sjekk_friskmelding(spiller)
+
+    # =========================================================================
+    # HENDELSESDAG
+    # =========================================================================
+    def _vis_hendelsesdag(self, dag, dato: datetime.date):
+        har_kamp    = dag.har_kamper if hasattr(dag, 'har_kamper') else bool(dag.kamper)
+        mine_kamper = [
+            k for k in dag.kamper
+            if (getattr(k, 'hjemme', None) == self.spiller_klubb or
+                getattr(k, 'borte', None) == self.spiller_klubb)
+        ]
+
+        # Vis uleste nyheter som InfoSkjerm
+        uleste = [h for h in self.hendelser.nyhets_ko if not h.lest]
+        if uleste:
+            linjer = []
+            for h in uleste[:6]:
+                linjer.append(getattr(h, 'tekst', str(h)))
+                h.lest = True
+            self._vis_info("INNBOKS", linjer)
+
+        if mine_kamper:
+            for kamp in mine_kamper:
+                self._håndter_kampdag(kamp, dato)
+            return
+
+        if dag.hendelser:
+            self._håndter_kalender_hendelse(dag, dato)
+            return
+
+        if har_kamp:
+            self._vis_andre_resultater(dag, dato)
+
+    # =========================================================================
+    # KALENDER-HENDELSE
+    # =========================================================================
+    def _håndter_kalender_hendelse(self, dag, dato: datetime.date):
+        dato_str = dato.strftime('%d.%m.%Y')
+        for hendelse in dag.hendelser:
+            if hendelse == KalenderHendelse.SERIESTART:
+                self._vis_info(
+                    "SESONGEN STARTER!",
+                    [f"{self.spiller_klubb.navn} er klare for Eliteserien {SESONG_AAR}.",
+                     "", "Lykke til!"],
+                )
+            elif hendelse in (KalenderHendelse.OVERGANG_1_AAPNER,
+                               KalenderHendelse.OVERGANG_2_AAPNER):
+                self._vis_info("OVERGANGSVINDUET ÅPNER",
+                                ["Du kan nå kjøpe og selge spillere."])
+            elif hendelse in (KalenderHendelse.OVERGANG_1_LUKKER,
+                               KalenderHendelse.OVERGANG_2_LUKKER):
+                self._vis_info("OVERGANGSVINDUET LUKKER",
+                                ["Overgangsvinduet er nå stengt."])
+            elif hendelse == KalenderHendelse.SERIEFINALE:
+                self._vis_info("SERIEFINALE",
+                                ["Siste runde av sesongen spilles i dag!"])
+
+    # =========================================================================
+    # KAMPDAG
+    # =========================================================================
+    def _håndter_kampdag(self, kamp, dato: datetime.date):
+        er_hjemme  = (kamp.hjemme == self.spiller_klubb)
+        motstander = kamp.borte if er_hjemme else kamp.hjemme
+        builder    = TroppBuilder(self.spiller_klubb)
+        ferdig     = {"verdi": False}
+
+        def _gå_laguttak():
+            self._vis_laguttak(builder, motstander.navn, on_ferdig=_tilbake_til_kampdag)
+
+        def _gå_spillerstall():
+            self._vis_spillerstall(on_tilbake=_tilbake_til_kampdag)
+
+        def _gå_tabell():
+            self._vis_tabell(on_tilbake=_tilbake_til_kampdag)
+
+        def _spill():
+            self._spill_kamp(kamp, builder, motstander)
+            ferdig["verdi"] = True
+
+        def _tilbake_til_kampdag():
+            self.ui.bytt_skjerm(
+                KampdagSkjerm(
+                    kamp=kamp, dato=dato,
+                    spiller_klubb=self.spiller_klubb,
+                    motstander=motstander,
+                    on_laguttak=_gå_laguttak,
+                    on_spill=_spill,
+                    on_spillerstall=_gå_spillerstall,
+                    on_tabell=_gå_tabell,
+                )
+            )
+
+        _tilbake_til_kampdag()
+
+        # Vent til kamp er spilt (eller bruker trykker ESC for å hoppe over)
+        while self._kjører and self.ui.tikk():
+            if ferdig["verdi"]:
+                break
+
+    def _vis_laguttak(self, builder: TroppBuilder, motstandernavn: str,
+                       on_ferdig: callable):
+        self.ui.push_skjerm(
+            LaguttakSkjerm(builder, motstandernavn,
+                            on_ferdig=lambda: self.ui.pop_skjerm() or on_ferdig())
+        )
+
+    def _vis_spillerstall(self, on_tilbake: callable):
+        self.ui.push_skjerm(
+            SpillerstallSkjerm(
+                self.spiller_klubb,
+                on_tilbake=lambda: self.ui.pop_skjerm() or on_tilbake(),
+            )
+        )
+
+    def _vis_tabell(self, on_tilbake: callable):
+        if self._tabell is None:
+            on_tilbake()
+            return
+        self.ui.push_skjerm(
+            TabellSkjerm(
+                self._tabell,
+                spiller_klubb_navn=getattr(self.spiller_klubb, 'navn', ''),
+                on_tilbake=lambda: self.ui.pop_skjerm() or on_tilbake(),
+            )
+        )
+
+    # =========================================================================
+    # SPILL KAMP
+    # =========================================================================
+    def _spill_kamp(self, kamp, builder: TroppBuilder, motstander):
+        er_hjemme      = (kamp.hjemme == self.spiller_klubb)
+        hjemme_klubb   = kamp.hjemme
+        borte_klubb    = kamp.borte
+        hjemme_builder = builder if er_hjemme else TroppBuilder(hjemme_klubb)
+        borte_builder  = TroppBuilder(borte_klubb) if er_hjemme else builder
+
+        hjemme_opp = hjemme_builder.bygg_oppstilling()
+        borte_opp  = borte_builder.bygg_oppstilling()
+
+        motor    = KampMotor(tillat_ekstraomganger=(kamp.kamp_type == "cup"))
+        resultat = motor.spill_kamp(
+            hjemme_klubb, borte_klubb, hjemme_opp, borte_opp
+        )
+
+        kamp.registrer_resultat(resultat.hjemme_maal, resultat.borte_maal)
+
+        # Oppdater tabell
+        if self._tabell:
+            self._tabell.registrer_resultat(resultat)
+
+        # Oppdater spillerstatistikk
+        self._stat_register.oppdater_fra_kampresultat(resultat)
+
+        # Hendelsesregistrering
+        alle_spillere = builder.startellever + builder.benk
+        for s in alle_spillere:
+            rating  = resultat.statistikk.hent_rating(s)
+            startet = s in builder.startellever
+            self.hendelser.registrer_kampresultat(s, rating, startet)
+
+        # Lagets resultat-historikk
+        if not hasattr(self.spiller_klubb, '_resultat_historikk'):
+            self.spiller_klubb._resultat_historikk = []
+        lag_res = ("S" if resultat.vinner_navn == self.spiller_klubb.navn else
+                   "U" if resultat.hjemme_maal == resultat.borte_maal else "T")
+        self.spiller_klubb._resultat_historikk.append(lag_res)
+        self.hendelser.sjekk_lag_terskler(
+            klubb       = self.spiller_klubb,
+            resultater  = self.spiller_klubb._resultat_historikk,
+            tabellplass = self._tabell.plass(self.spiller_klubb.navn) if self._tabell else 8,
+            runde_nr    = len(self.spiller_klubb._resultat_historikk),
+        )
+
+        # Vis kamprapport (modal — venter til bruker klikker Fortsett)
+        ferdig = {"v": False}
+
+        def _ferdig():
+            ferdig["v"] = True
+            self.ui.pop_skjerm()
+
+        self.ui.push_skjerm(
+            KamprapportSkjerm(
+                resultat=resultat,
+                hjemme_spillere=hjemme_builder.startellever,
+                borte_spillere=borte_builder.startellever,
+                on_ferdig=_ferdig,
+            )
+        )
+        while self._kjører and self.ui.tikk():
+            if ferdig["v"]:
+                break
+
+    # =========================================================================
+    # ANDRE RESULTATER
+    # =========================================================================
+    def _vis_andre_resultater(self, dag, dato: datetime.date):
+        dato_str = dato.strftime('%d.%m')
+        andre = [
+            k for k in dag.kamper
+            if (getattr(k, 'hjemme', None) != self.spiller_klubb and
+                getattr(k, 'borte', None) != self.spiller_klubb)
+            and getattr(k, 'spilt', False)
+        ]
+        if not andre:
+            return
+
+        resultater = []
+        for k in andre[:14]:
+            resultater.append((
+                getattr(k.hjemme, 'kortnavn', getattr(k.hjemme, 'navn', '?')[:6]),
+                getattr(k, 'hjemme_maal', 0),
+                getattr(k.borte, 'kortnavn', getattr(k.borte, 'navn', '?')[:6]),
+                getattr(k, 'borte_maal', 0),
+            ))
+
+        ferdig = {"v": False}
+
+        def _ferdig():
+            ferdig["v"] = True
+            self.ui.pop_skjerm()
+
+        self.ui.push_skjerm(
+            AndreResultaterSkjerm(resultater, dato_str, on_ferdig=_ferdig)
+        )
+        while self._kjører and self.ui.tikk():
+            if ferdig["v"]:
+                break
+
+    # =========================================================================
+    # INFO-HJELPERE
+    # =========================================================================
+    def _vis_info(self, tittel: str, linjer: list[str]):
+        """Blokker til bruker trykker Fortsett."""
+        ferdig = {"v": False}
+
+        def _ferdig():
+            ferdig["v"] = True
+            self.ui.pop_skjerm()
+
+        self.ui.push_skjerm(InfoSkjerm(tittel, linjer, on_ferdig=_ferdig))
+        while self._kjører and self.ui.tikk():
+            if ferdig["v"]:
+                break
+
+    # =========================================================================
+    # SESONG SLUTT
+    # =========================================================================
+    def _sesong_slutt(self):
+        ferdig = {"v": False}
+
+        def _avslutt():
+            ferdig["v"] = True
+            self._kjører = False
+            self.ui.pop_skjerm()
+
+        hist = getattr(self.spiller_klubb, '_resultat_historikk', [])
+        self.ui.push_skjerm(
+            SesongsSluttSkjerm(
+                klubb_navn  = getattr(self.spiller_klubb, 'navn', '?'),
+                resultater  = hist,
+                tabell      = self._tabell,
+                on_avslutt  = _avslutt,
+            )
+        )
+        while self.ui.tikk():
+            if ferdig["v"]:
+                break
+
+
+# =============================================================================
+# INNGANGSPUNKT
+# =============================================================================
+if __name__ == "__main__":
+    motor = SpillmotorPygame()
+    motor.start()
