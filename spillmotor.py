@@ -251,6 +251,48 @@ class Spillmotor:
         self._kjører: bool        = False
 
     # =========================================================================
+    # AI SIMULERING
+    # =========================================================================
+    def _simuler_ai_kamper(self, alle_kamper, mine_kamper):
+        """Simulerer kampene til AI-lagene i bakgrunnen uten utskrift."""
+        import sys
+        import io
+        from contextlib import redirect_stdout
+
+        for kamp in alle_kamper:
+            if kamp in mine_kamper or kamp.spilt:
+                continue
+
+            hjemme_builder = TroppBuilder(kamp.hjemme)
+            borte_builder = TroppBuilder(kamp.borte)
+
+            hjemme_opp = hjemme_builder.bygg_oppstilling()
+            borte_opp = borte_builder.bygg_oppstilling()
+
+            motor = KampMotor(tillat_ekstraomganger=(kamp.kamp_type == "cup"))
+
+            # Kjør i bakgrunnen, skjult output
+            with redirect_stdout(io.StringIO()):
+                resultat = motor.spill_kamp(kamp.hjemme, kamp.borte, hjemme_opp, borte_opp)
+
+            kamp.registrer_resultat(resultat.hjemme_maal, resultat.borte_maal)
+            self._registrer_resultat_i_liga(kamp)
+
+    # =========================================================================
+    # LIGA-OPPDATERING
+    # =========================================================================
+    def _registrer_resultat_i_liga(self, kamp):
+        """Finner riktig avdeling og oppdaterer tabellen."""
+        if not self.liga:
+            return
+
+        alle_avdelinger = [self.liga.eliteserien, self.liga.obos] + self.liga.div_2 + self.liga.div_3
+        for avdeling in alle_avdelinger:
+            if kamp.hjemme in avdeling.lag:
+                avdeling.registrer_kampresultat(kamp)
+                break
+
+    # =========================================================================
     # OPPSTART
     # =========================================================================
     def start_nytt_spill(self):
@@ -382,6 +424,10 @@ class Spillmotor:
             if (getattr(k, 'hjemme', None) == self.spiller_klubb or
                 getattr(k, 'borte', None) == self.spiller_klubb)
         ]
+
+        # Simuler AI-kamper først for å oppdatere tabellen
+        if dag.kamper:
+            self._simuler_ai_kamper(dag.kamper, mine_kamper)
 
         # Vis innboks hvis det er nyheter
         uleste = [h for h in self.hendelser.nyhets_ko if not h.lest]
@@ -541,6 +587,9 @@ class Spillmotor:
 
         # Registrer resultatet i kamp-objektet
         kamp.registrer_resultat(resultat.hjemme_maal, resultat.borte_maal)
+
+        # Oppdater resultatet i ligasystemet
+        self._registrer_resultat_i_liga(kamp)
 
         # Oppdater kondisjon (allerede gjort av kampmotor via _sluttspill)
         # Registrer kampresultater i hendelsessystemet
