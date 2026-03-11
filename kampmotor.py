@@ -16,8 +16,8 @@ HJEMMEBANE_FORDEL    = 1.10        # 10% boost til hjemmelagets midtbane
 TRETTHET_GRENSE      = 75          # Spillere under dette byttet ut av AI
 RØDT_KORT_FORSVAR    = 0.80        # Forsvarsstyrke ved 10 mot 11
 RØDT_KORT_MIDTBANE   = 0.85        # Midtbanestyrke ved 10 mot 11
-P_GULT_KORT          = 0.04        # Per intervall per lag
-P_RØDT_KORT          = 0.005       # Per intervall per lag
+P_GULT_KORT          = 0.078       # Per intervall per lag
+P_RØDT_KORT          = 0.004       # Per intervall per lag
 P_SKADE              = 0.008       # Per intervall per lag
 P_STRAFFE            = 0.015       # Per intervall ved sjanse
 # In-game kondisjon-drop per halvtid (5-minutters intervall)
@@ -36,7 +36,7 @@ MAAL_TYPER = [
 ]
 # Kalibrert mot Eliteserien ~2.5 mål/kamp totalt.
 # p_sjanse = (angrep / (angrep + forsvar)) * BASE_SJANSE per vunnet intervall.
-BASE_SJANSE       = 0.55
+BASE_SJANSE       = 0.95
 # Keeper bruker keeperferdighet, spiss bruker skudd-attributt for p(mål)
 SKUDD_ATTR        = "skudd"
 KEEPER_ATTR       = "keeperferdighet"

@@ -323,6 +323,8 @@ class Person:
             setattr(self, navn, _sjekk_verdi(navn, verdi))
 
         # Tilstand
+        self.kontrakt          = None
+        self.form_historikk: list[str] = []
         self.kondisjon         = 100.0   # Sesongkondisjon (faller ved manglende hvile)
         self.in_game_kondisjon = 100.0   # Kampkondisjon   (nullstilles etter kamp)
         self.skadet            = False
@@ -538,8 +540,9 @@ class Person:
         """
         ovr = self.ferdighet
 
-        # Eksponentiell baseverdi: OVR 10 → 1 MNOK, OVR 20 → 8 MNOK
-        basis = 50_000 + (ovr ** 3) * 1_000
+        import math
+        # Eksponentiell baseverdi kalibrert til målverdier
+        basis = int(16000 * math.exp(0.3912 * ovr))
 
         # Potensialkurve: under 23 og utap for sitt potensial
         potensial_f = 1.0
@@ -610,7 +613,7 @@ class Person:
             p.primær_posisjon   = Posisjon[data["primær_posisjon"]]
         if data.get("sekundær_posisjon"):
             p.sekundær_posisjon = Posisjon[data["sekundær_posisjon"]]
-        p.roller = [Posisjon[r] for r in data.get("roller", [])]
+        p.roller = []
         return p
 
 
