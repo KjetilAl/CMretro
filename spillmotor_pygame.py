@@ -23,6 +23,8 @@ from taktikk      import TAKTIKK_KATALOG, Oppstilling, Posisjon, POSISJON_GRUPPE
 from liga         import LigaSystem, opprett_ligasystem, populer_ligasystem_fra_db
 from person       import Person
 from tabell       import Seriatabell, SpillerStatistikkRegister
+from okonomi      import Kontrakt, SpillerMarked, AIManager, _minstelonn_krav
+from cup          import opprett_cup_system
 
 # ── UI ─────────────────────────────────────────────────────────────────────
 from ui_pygame import (
