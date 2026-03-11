@@ -365,6 +365,9 @@ class AIManager:
             return resultater
 
         budsjett = self._maks_budsum()
+        budsjett_brukt = 0
+
+        from taktikk import POSISJON_GRUPPE
 
         # 1. Prøv free agents først (gratis overgangssum)
         kandidater_fa = marked.soek_free_agents(
@@ -374,12 +377,19 @@ class AIManager:
         )
         for kandidat in kandidater_fa[:2]:
             lonn = _minstelonn_krav(kandidat)
-            if lonn * 52 * 3 > budsjett:
+            if budsjett_brukt + (lonn * 52 * 3) > budsjett:
+                continue
+            if self.klubb.saldo < lonn * 6:
+                continue
+            gruppe = POSISJON_GRUPPE.get(kandidat.primær_posisjon, "M")
+            antall_i_gruppe = sum(1 for s in self.klubb.spillerstall if POSISJON_GRUPPE.get(getattr(s, 'primær_posisjon', None), "M") == gruppe)
+            if antall_i_gruppe >= 3:
                 continue
             ok, melding = marked.hent_free_agent(
                 self.klubb, kandidat, dags_dato_aar, lonn
             )
             if ok:
+                budsjett_brukt += (lonn * 52 * 3)
                 resultater.append(melding)
                 break
 
@@ -394,7 +404,13 @@ class AIManager:
             mv       = kandidat.markedsverdi_nok
             budsum   = int(mv * random.uniform(0.85, 1.10))
             lonn     = _minstelonn_krav(kandidat)
-            if budsum > budsjett:
+            if budsjett_brukt + budsum > budsjett:
+                continue
+            if self.klubb.saldo - budsum < lonn * 6:
+                continue
+            gruppe = POSISJON_GRUPPE.get(kandidat.primær_posisjon, "M")
+            antall_i_gruppe = sum(1 for s in self.klubb.spillerstall if POSISJON_GRUPPE.get(getattr(s, 'primær_posisjon', None), "M") == gruppe)
+            if antall_i_gruppe >= 3:
                 continue
 
             bud = Bud(
@@ -407,6 +423,7 @@ class AIManager:
             )
             ok, melding = marked.behandle_bud(bud, selger, dags_dato_aar)
             if ok:
+                budsjett_brukt += (lonn * 52 * 3)
                 resultater.append(melding)
                 break
 

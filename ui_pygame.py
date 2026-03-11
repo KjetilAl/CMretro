@@ -291,7 +291,7 @@ class SkjermData:
 # ─────────────────────────────────────────────────────────────────────────────
 # FELLES HJELPERE (brukes av alle skjermer)
 # ─────────────────────────────────────────────────────────────────────────────
-def _tegn_topplinje(surf, venstre: str, midtre: str, høyre: str, font=None):
+def _tegn_topplinje(surf, venstre: str, midtre: str, høyre: str, font=None, is_pauset: bool=False):
     """Toppstripel i NAVY med tre tekstfelt."""
     if font is None:
         font = Fonter.liten
@@ -302,6 +302,9 @@ def _tegn_topplinje(surf, venstre: str, midtre: str, høyre: str, font=None):
     surf.blit(mid_t, (W_BASE//2 - mid_t.get_width()//2, 4))
     høyre_t = font.render(høyre, False, P.LYSBLÅ_UI)
     surf.blit(høyre_t, (W_BASE - høyre_t.get_width() - 4, 4))
+    if is_pauset:
+        pygame.draw.rect(surf, P.GULT, (W_BASE - 50, 4, 46, 16))
+        tegn_tekst(surf, "PAUSET", (W_BASE - 48, 6), font, P.SVART)
 
 def _tegn_bunnlinje(surf, tekst: str, font=None):
     """Statuslinje nederst."""
@@ -900,6 +903,8 @@ class SpillerstallSkjerm(SkjermData):
     def __init__(self, klubb, on_tilbake: Callable, on_spillerkort: Callable = None):
         self.klubb      = klubb
         self.on_tilbake = on_tilbake
+        self.on_forrige = on_forrige
+        self.on_neste = on_neste
         self.on_spillerkort = on_spillerkort
         self._scroll    = 0
         self._hover     = -1
@@ -1046,6 +1051,8 @@ class TabellSkjerm(SkjermData):
         self._aktiv_div_idx = self.divisjoner.index(aktiv_divisjon) if aktiv_divisjon in self.divisjoner else 0
         self.spiller_klubb_navn = spiller_klubb_navn
         self.on_tilbake = on_tilbake
+        self.on_forrige = on_forrige
+        self.on_neste = on_neste
         self._fane = 0   # 0=tabell 1=toppscorere
         self._scroll = 0
         self._SYNLIGE = 11
@@ -1388,11 +1395,13 @@ class SpillerkortSkjerm(SkjermData):
     på en spiller i SpillerstallSkjerm eller LaguttakSkjerm.
     """
     def __init__(self, spiller, spiller_liste: list, start_idx: int,
-                 stat_register, on_tilbake: Callable):
+                 stat_register, on_tilbake: Callable, on_forrige: Callable=None, on_neste: Callable=None):
         self.spiller_liste = spiller_liste
         self.idx = start_idx
         self.stat_register = stat_register
         self.on_tilbake = on_tilbake
+        self.on_forrige = on_forrige
+        self.on_neste = on_neste
         self.spiller = spiller
 
     def _tegn_portrett(self, surf, x, y, pos_str):
@@ -1509,22 +1518,18 @@ class SpillerkortSkjerm(SkjermData):
             if event.key in (pygame.K_ESCAPE, pygame.K_BACKSPACE):
                 self.on_tilbake()
             elif event.key == pygame.K_LEFT:
-                self.idx = (self.idx - 1) % len(self.spiller_liste)
-                self.spiller = self.spiller_liste[self.idx]
+                if self.on_forrige: self.on_forrige()
             elif event.key == pygame.K_RIGHT:
-                self.idx = (self.idx + 1) % len(self.spiller_liste)
-                self.spiller = self.spiller_liste[self.idx]
+                if self.on_neste: self.on_neste()
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             mx, my = ui.base_mus()
             if H_BASE-34 <= my <= H_BASE-10:
                 if 20 <= mx <= 120:
-                    self.idx = (self.idx - 1) % len(self.spiller_liste)
-                    self.spiller = self.spiller_liste[self.idx]
+                    if self.on_forrige: self.on_forrige()
                 elif W_BASE//2-50 <= mx <= W_BASE//2+50:
                     self.on_tilbake()
                 elif W_BASE-120 <= mx <= W_BASE-20:
-                    self.idx = (self.idx + 1) % len(self.spiller_liste)
-                    self.spiller = self.spiller_liste[self.idx]
+                    if self.on_neste: self.on_neste()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SKJERM: ANDRE RESULTATER (rask gjennomkjøring)
@@ -1666,6 +1671,7 @@ class UIMotor:
         self._stack: list[SkjermData] = []
         self._kjører     = True
         self._mus_pos    = (0, 0)
+        self._pauset: bool = False
         pygame.mouse.set_visible(True)
 
     # ── Navigasjon ────────────────────────────────────────────────────────────
@@ -1719,6 +1725,8 @@ class UIMotor:
                 return False
             if event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
                 pygame.display.toggle_fullscreen()
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_p:
+                self._pauset = not self._pauset
 
             if self._stack:
                 self._stack[-1].håndter_event(event, self)
@@ -1727,6 +1735,8 @@ class UIMotor:
         self._base.fill(P.GRÅ_PANEL)
         if self._stack:
             self._stack[-1].tegn(self._base, self)
+            if self._pauset and hasattr(self._stack[-1], '__class__'):
+                _tegn_topplinje(self._base, "", "PAUSET", "PAUSET", is_pauset=True)
 
         # Skaler til vindu
         pygame.transform.scale(self._base, (W, H), self._skjerm)

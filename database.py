@@ -466,7 +466,7 @@ def hent_spillere_for_lag(klubb: Klubb) -> list[Person]:
 
 def hent_spilleklar_tropp(klubb: Klubb) -> list[Person]:
     """Returnerer spillere som er friske og over kondisjongrensen."""
-    return [s for s in klubb.spillerstall if getattr(s, 'er_spilleklar', True)]
+    return [s for s in klubb.spillerstall if getattr(s, 'er_spilleklar', True) and not getattr(s, 'skadet', False) and getattr(s, 'kondisjon', 100.0) > 30.0]
 
 
 def foreslå_startellever(klubb: Klubb, formasjon_navn: str = "4-3-3") -> dict:

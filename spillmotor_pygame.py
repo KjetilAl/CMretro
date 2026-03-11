@@ -515,15 +515,24 @@ class SpillmotorPygame:
             if on_tilbake:
                 on_tilbake()
 
-        self.ui.push_skjerm(
-            SpillerkortSkjerm(
-                spiller=spiller,
-                spiller_liste=spiller_liste,
-                start_idx=idx,
-                stat_register=self._stat_register,
-                on_tilbake=_tilbake
-            )
+        def _forrige():
+            skjerm.idx = (skjerm.idx - 1) % len(skjerm.spiller_liste)
+            skjerm.spiller = skjerm.spiller_liste[skjerm.idx]
+
+        def _neste():
+            skjerm.idx = (skjerm.idx + 1) % len(skjerm.spiller_liste)
+            skjerm.spiller = skjerm.spiller_liste[skjerm.idx]
+
+        skjerm = SpillerkortSkjerm(
+            spiller=spiller,
+            spiller_liste=spiller_liste,
+            start_idx=idx,
+            stat_register=self._stat_register,
+            on_tilbake=_tilbake,
+            on_forrige=_forrige,
+            on_neste=_neste
         )
+        self.ui.push_skjerm(skjerm)
 
     def _vis_laguttak(self, builder: TroppBuilder, motstandernavn: str,
                        on_ferdig: callable):
@@ -578,6 +587,20 @@ class SpillmotorPygame:
             aktiv_tabell.registrer_resultat(resultat)
             aktiv_tabell._statistikk_register.oppdater_fra_kampresultat(resultat)
 
+            # Lagets resultat-historikk (brukes for styre-vurdering)
+            if self.spiller_klubb in (kamp.hjemme, kamp.borte):
+                lag_res = ("S" if resultat.vinner_navn == self.spiller_klubb.navn else "U" if resultat.hjemme_maal == resultat.borte_maal else "T")
+                if not hasattr(self.spiller_klubb, '_resultat_historikk'):
+                    self.spiller_klubb._resultat_historikk = []
+                self.spiller_klubb._resultat_historikk.append(lag_res)
+
+                self.hendelser.sjekk_lag_terskler(
+                    klubb=self.spiller_klubb,
+                    resultater=self.spiller_klubb._resultat_historikk,
+                    tabellplass=aktiv_tabell.plass(self.spiller_klubb.navn),
+                    runde_nr=len(self.spiller_klubb._resultat_historikk),
+                )
+
         # Oppdater spillerstatistikk
         self._stat_register.oppdater_fra_kampresultat(resultat)
 
@@ -587,20 +610,6 @@ class SpillmotorPygame:
             rating  = resultat.statistikk.hent_rating(s)
             startet = s in builder.startellever
             self.hendelser.registrer_kampresultat(s, rating, startet)
-
-        # Lagets resultat-historikk (brukes for styre-vurdering)
-        if self.spiller_klubb in (kamp.hjemme, kamp.borte):
-            lag_res = ("S" if resultat.vinner_navn == self.spiller_klubb.navn else "U" if resultat.hjemme_maal == resultat.borte_maal else "T")
-            if not hasattr(self.spiller_klubb, '_resultat_historikk'):
-                self.spiller_klubb._resultat_historikk = []
-              self.spiller_klubb._resultat_historikk.append(lag_res)
-                
-              self.hendelser.sjekk_lag_terskler(
-                  klubb=self.spiller_klubb,
-                  resultater=self.spiller_klubb._resultat_historikk,
-                  tabellplass=aktiv_tabell.plass(self.spiller_klubb.navn),
-                  runde_nr=len(self.spiller_klubb._resultat_historikk),
-              )
 
         # Vis kamprapport (modal — venter til bruker klikker Fortsett)
         ferdig = {"v": False}
