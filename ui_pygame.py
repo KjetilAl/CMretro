@@ -1040,168 +1040,121 @@ class SpillerstallSkjerm(SkjermData):
 # SKJERM: SERIATABELL
 # ─────────────────────────────────────────────────────────────────────────────
 class TabellSkjerm(SkjermData):
-    def __init__(self, tabeller: dict, spiller_klubb_navn: str, on_tilbake: Callable):
-        self.tabeller            = tabeller
-        self.spiller_klubb_navn  = spiller_klubb_navn
-        self.on_tilbake          = on_tilbake
+    def __init__(self, tabeller: dict, aktiv_divisjon: str, spiller_klubb_navn: str, on_tilbake: Callable):
+        self.tabeller = tabeller
+        self.divisjoner = list(tabeller.keys())
+        self._aktiv_div_idx = self.divisjoner.index(aktiv_divisjon) if aktiv_divisjon in self.divisjoner else 0
+        self.spiller_klubb_navn = spiller_klubb_navn
+        self.on_tilbake = on_tilbake
+        self._fane = 0   # 0=tabell 1=toppscorere
+        self._scroll = 0
+        self._SYNLIGE = 11
 
-        # Divisjons-rekkefølge for faner
-        self._divisjoner = []
-        for d in ['Eliteserien', 'OBOS-ligaen', 'Div 2', 'Div 3']:
-            if d in self.tabeller:
-                self._divisjoner.append(d)
-        for d in self.tabeller.keys():
-            if d not in self._divisjoner:
-                self._divisjoner.append(d)
-
-        # Finn spillerens divisjon
-        self._valgt_div_idx = 0
-        for i, d in enumerate(self._divisjoner):
-            tab = self.tabeller[d]
-            if tab.hent_rad(self.spiller_klubb_navn):
-                self._valgt_div_idx = i
-                break
-
-        self._under_fane = 0   # 0=tabell 1=toppscorere
+    @property
+    def aktiv_tabell(self):
+        return self.tabeller[self.divisjoner[self._aktiv_div_idx]]
 
     def tegn(self, surf, ui):
         _tegn_bakgrunn(surf)
-        f  = Fonter.liten
+        f = Fonter.liten
         fb = Fonter.fet
+        
+        div_navn = self.divisjoner[self._aktiv_div_idx]
+        _tegn_topplinje(surf, "SERIE", div_navn, "◄ PILER FOR DIVISJON ►")
 
-        aktiv_tabell = self.tabeller[self._divisjoner[self._valgt_div_idx]]
-        manager_str = ""
-        if hasattr(ui, 'manager_fornavn') and ui.manager_fornavn:
-            manager_str = f"{ui.manager_fornavn[0]}. {ui.manager_etternavn}"
-        _tegn_topplinje(surf, "SERIE", aktiv_tabell.divisjon, manager_str)
-
-        # Divisjons-faner
-        fane_w = min(120, W_BASE // max(1, len(self._divisjoner)))
-        for i, d_navn in enumerate(self._divisjoner):
-            er_aktiv = i == self._valgt_div_idx
-            tegn_knapp(surf, (4 + i*fane_w, 20, fane_w-2, 16), d_navn, f,
-                       valgt=er_aktiv,
-                       hovered=(not er_aktiv and ui.mus_innenfor(((4+i*fane_w)*SKALA, 20*SKALA, (fane_w-2)*SKALA, 16*SKALA))))
-
-        # Underfaner (TABELL / TOPPSCORERE)
         for fi, tekst in enumerate(["TABELL", "TOPPSCORERE"]):
-            er_aktiv = fi == self._under_fane
-            tegn_knapp(surf, (4 + fi*160, 40, 156, 18), tekst, f,
-                        valgt=er_aktiv,
-                        hovered=(not er_aktiv and
-                                 ui.mus_innenfor(((4+fi*160)*SKALA, 40*SKALA, 156*SKALA, 18*SKALA))))
+            er_aktiv = fi == self._fane
+            tegn_knapp(surf, (2 + fi*80, 13, 78, 10), tekst, f, valgt=er_aktiv)
 
-        if self._under_fane == 0:
-            self._tegn_tabell(surf, ui, aktiv_tabell)
+        if self._fane == 0:
+            self._tegn_tabell(surf, ui)
         else:
-            self._tegn_toppscorere(surf, ui, aktiv_tabell)
+            self._tegn_toppscorere(surf, ui)
 
-        tegn_knapp(surf, (W_BASE//2-60, H_BASE-26, 120, 22), "TILBAKE",
-                   Fonter.normal,
-                   hovered=ui.mus_innenfor(((W_BASE//2-60)*SKALA, (H_BASE-26)*SKALA,
-                                             120*SKALA, 22*SKALA)))
-        _tegn_bunnlinje(surf, "TAB=BYTT FANE  ESC=TILBAKE")
+        tegn_knapp(surf, (W_BASE//2-30, H_BASE-13, 60, 11), "TILBAKE", Fonter.normal)
+        _tegn_bunnlinje(surf, "TAB=FANE  ◄►=DIVISJON  ↑↓=SCROLL  ESC=TILBAKE")
 
-    def _tegn_tabell(self, surf, ui, aktiv_tabell):
-        f  = Fonter.liten
-        rader = aktiv_tabell.sorter()
+    def _tegn_tabell(self, surf, ui):
+        f = Fonter.liten
+        rader = self.aktiv_tabell.sorter()
 
-        # Kolonnetitler
-        pygame.draw.rect(surf, P.BLÅL, (4, 62, W_BASE-8, 16))
-        tegn_tekst(surf, "#",  (4,  64), f, P.HVIT)
-        tegn_tekst(surf, "KLUBB", (28, 64), f, P.HVIT)
-        tegn_tekst(surf, "K",  (284, 64), f, P.HVIT)
-        tegn_tekst(surf, "S",  (316, 64), f, P.HVIT)
-        tegn_tekst(surf, "U",  (344, 64), f, P.HVIT)
-        tegn_tekst(surf, "T",  (372, 64), f, P.HVIT)
-        tegn_tekst(surf, "MF", (400, 64), f, P.HVIT)
-        tegn_tekst(surf, "MM", (432, 64), f, P.HVIT)
-        tegn_tekst(surf, "MD", (464, 64), f, P.HVIT)
-        tegn_tekst(surf, "P",  (504, 64), f, P.HVIT)
+        pygame.draw.rect(surf, P.BLÅL, (2, 24, W_BASE-4, 8))
+        # (Kolonnetitler tegnes som før)
+        titler = [("#", 2), ("KLUBB", 14), ("K", 142), ("S", 158), ("U", 172), ("T", 186), ("MF", 200), ("MM", 216), ("MD", 232), ("P", 252)]
+        for t, x in titler:
+            tegn_tekst(surf, t, (x, 25), f, P.HVIT)
 
-        rad_h = 24
-        y0    = 82
-        for plass, rad in enumerate(rader, 1):
-            ry       = y0 + (plass-1) * rad_h
-            if ry + rad_h > H_BASE - 32:
-                break
-            er_min   = (rad.klubb_navn == self.spiller_klubb_navn)
+        rad_h = 12
+        y0 = 34
+        start = self._scroll
+        slutt = min(start + self._SYNLIGE, len(rader))
+
+        for i, plass in enumerate(range(start, slutt)):
+            rad = rader[plass]
+            ry = y0 + i * rad_h
+            er_min = (rad.klubb_navn == self.spiller_klubb_navn)
             farge_rad = P.BLÅL if er_min else ((34,34,48) if plass % 2 == 0 else (28,28,40))
-            pygame.draw.rect(surf, farge_rad, (4, ry, W_BASE-8, rad_h-2))
+            pygame.draw.rect(surf, farge_rad, (2, ry, W_BASE-9, rad_h-1))
 
-            md  = rad.mål_differanse
+            md = rad.mål_differanse
             md_s = f"+{md}" if md > 0 else str(md)
-            tkf  = P.GULT if er_min else P.KREMHVIT
+            tkf = P.GULT if er_min else P.KREMHVIT
 
-            tegn_tekst(surf, str(plass),          (4,   ry+4), f, P.GRÅ_LYS)
-            tegn_tekst(surf, rad.klubb_navn[:18],  (28,  ry+4), f, tkf, max_bredde=250)
-            tegn_tekst(surf, str(rad.kamp),        (284, ry+4), f, P.LYSBLÅ_UI)
-            tegn_tekst(surf, str(rad.seier),       (316, ry+4), f, P.GRØNN)
-            tegn_tekst(surf, str(rad.uavgjort),    (344, ry+4), f, P.GULT)
-            tegn_tekst(surf, str(rad.tap),         (372, ry+4), f, P.RØD)
-            tegn_tekst(surf, str(rad.mål_for),     (400, ry+4), f, P.KREMHVIT)
-            tegn_tekst(surf, str(rad.mål_mot),     (432, ry+4), f, P.KREMHVIT)
-            tegn_tekst(surf, md_s,                 (464, ry+4), f,
-                       P.GRØNN if md > 0 else (P.RØD if md < 0 else P.GRÅ_LYS))
-            tegn_badge(surf, str(rad.poeng),        (504, ry+2),
-                       P.GULT if er_min else P.NAVY, P.NAVY if er_min else P.HVIT, f)
+            tegn_tekst(surf, str(plass+1), (2, ry+2), f, P.GRÅ_LYS)
+            tegn_tekst(surf, rad.klubb_navn[:18], (14, ry+2), f, tkf, max_bredde=125)
+            tegn_tekst(surf, str(rad.kamp), (142, ry+2), f, P.LYSBLÅ_UI)
+            tegn_tekst(surf, str(rad.seier), (158, ry+2), f, P.GRØNN)
+            tegn_tekst(surf, str(rad.uavgjort), (172, ry+2), f, P.GULT)
+            tegn_tekst(surf, str(rad.tap), (186, ry+2), f, P.RØD)
+            tegn_tekst(surf, str(rad.mål_for), (200, ry+2), f, P.KREMHVIT)
+            tegn_tekst(surf, str(rad.mål_mot), (216, ry+2), f, P.KREMHVIT)
+            tegn_tekst(surf, md_s, (232, ry+2), f, P.GRØNN if md > 0 else (P.RØD if md < 0 else P.GRÅ_LYS))
+            tegn_badge(surf, str(rad.poeng), (252, ry+1), P.GULT if er_min else P.NAVY, P.NAVY if er_min else P.HVIT, f)
 
-    def _tegn_toppscorere(self, surf, ui, aktiv_tabell):
-        f  = Fonter.liten
-        if not hasattr(aktiv_tabell, '_statistikk_register'):
-            tegn_tekst(surf, "Ingen statistikk tilgjengelig ennå.", (8, 80), f, P.GRÅ_LYS)
+        tegn_scrollbar(surf, W_BASE-5, y0, self._SYNLIGE*rad_h, len(rader), self._SYNLIGE, self._scroll)
+
+    def _tegn_toppscorere(self, surf, ui):
+        # (Samme logikk som før, men bytt ut `self.tabell` med `self.aktiv_tabell`)
+        f = Fonter.liten
+        if not hasattr(self.aktiv_tabell, '_statistikk_register'):
             return
+        
+        pygame.draw.rect(surf, P.BLÅL, (2, 24, W_BASE-4, 8))
+        titler = [("#", 2), ("SPILLER", 14), ("K", 158), ("MÅL", 174), ("RTG", 200)]
+        for t, x in titler: tegn_tekst(surf, t, (x, 25), f, P.HVIT)
 
-        pygame.draw.rect(surf, P.BLÅL, (4, 62, W_BASE-8, 16))
-        tegn_tekst(surf, "#",      (4,  64), f, P.HVIT)
-        tegn_tekst(surf, "SPILLER",(28, 64), f, P.HVIT)
-        tegn_tekst(surf, "K",      (316,64), f, P.HVIT)
-        tegn_tekst(surf, "MÅL",    (348,64), f, P.HVIT)
-        tegn_tekst(surf, "RTG",    (400,64), f, P.HVIT)
-
-        topp = aktiv_tabell._statistikk_register.toppscorere(12)
+        topp = self.aktiv_tabell._statistikk_register.toppscorere(self._SYNLIGE)
         for i, stat in enumerate(topp):
-            ry = 82 + i * 24
-            if ry + 24 > H_BASE - 32:
-                break
+            ry = 34 + i * 12
             farge_rad = (34,34,48) if i % 2 == 0 else (28,28,40)
-            pygame.draw.rect(surf, farge_rad, (4, ry, W_BASE-8, 22))
-            tegn_tekst(surf, str(i+1),        (4,  ry+4), f, P.GRÅ_LYS)
-            tegn_tekst(surf, stat.spiller_navn[:20], (28, ry+4), f, P.KREMHVIT, max_bredde=280)
-            tegn_tekst(surf, str(stat.kamper), (316,ry+4), f, P.LYSBLÅ_UI)
-            tegn_badge(surf, str(stat.mål),    (344,ry+2), P.GRØNN, P.HVIT, f)
-            tegn_tekst(surf, f"{stat.snitt_rating:.1f}", (400,ry+4), f, P.GULT)
+            pygame.draw.rect(surf, farge_rad, (2, ry, W_BASE-4, 11))
+            tegn_tekst(surf, str(i+1), (2, ry+2), f, P.GRÅ_LYS)
+            tegn_tekst(surf, stat.spiller_navn[:20], (14, ry+2), f, P.KREMHVIT, max_bredde=140)
+            tegn_tekst(surf, str(stat.kamper), (158, ry+2), f, P.LYSBLÅ_UI)
+            tegn_badge(surf, str(stat.mål), (172, ry+1), P.GRØNN, P.HVIT, f)
+            tegn_tekst(surf, f"{stat.snitt_rating:.1f}", (200, ry+2), f, P.GULT)
 
     def håndter_event(self, event, ui):
+        maks_scroll = max(0, len(self.aktiv_tabell.sorter()) - self._SYNLIGE)
         if event.type == pygame.KEYDOWN:
             if event.key in (pygame.K_ESCAPE, pygame.K_BACKSPACE):
                 self.on_tilbake()
             elif event.key == pygame.K_TAB:
-                self._under_fane = 1 - self._under_fane
+                self._fane = 1 - self._fane
+                self._scroll = 0
             elif event.key == pygame.K_LEFT:
-                self._valgt_div_idx = (self._valgt_div_idx - 1) % len(self._divisjoner)
+                self._aktiv_div_idx = (self._aktiv_div_idx - 1) % len(self.divisjoner)
+                self._scroll = 0
             elif event.key == pygame.K_RIGHT:
-                self._valgt_div_idx = (self._valgt_div_idx + 1) % len(self._divisjoner)
-        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            mx, my = ui.base_mus()
-            # Divisjons-faner
-            fane_w = min(120, W_BASE // max(1, len(self._divisjoner)))
-            for i in range(len(self._divisjoner)):
-                if 4 + i*fane_w <= mx <= 4 + i*fane_w + fane_w - 2 and 20 <= my <= 36:
-                    self._valgt_div_idx = i
-                    return
-
-            # Underfaner
-            for fi in range(2):
-                if 4+fi*160 <= mx <= 160+fi*160 and 40 <= my <= 58:
-                    self._under_fane = fi
-                    return
-            # Tilbake
-            if (my >= H_BASE-26 and
-                    (W_BASE//2-60)*SKALA <= event.pos[0] <= (W_BASE//2+60)*SKALA):
-                self.on_tilbake()
-
-
+                self._aktiv_div_idx = (self._aktiv_div_idx + 1) % len(self.divisjoner)
+                self._scroll = 0
+            elif event.key == pygame.K_DOWN:
+                self._scroll = min(maks_scroll, self._scroll + 1)
+            elif event.key == pygame.K_UP:
+                self._scroll = max(0, self._scroll - 1)
+        elif event.type == pygame.MOUSEWHEEL:
+            self._scroll = max(0, min(maks_scroll, self._scroll - event.y))
+            
 # ─────────────────────────────────────────────────────────────────────────────
 # SKJERM: KAMPRAPPORT
 # ─────────────────────────────────────────────────────────────────────────────
