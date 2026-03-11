@@ -61,9 +61,6 @@ class TroppBuilder:
         self.startellever: list[Person] = []
         self.benk: list[Person]         = []
         self._bygg_forslag()
-        self._tabeller: dict[str, Seriatabell] = {}  # Nå en dictionary!
-        self.cup_motor = None
-        self.spillermarked = SpillerMarked()
 
     def _bygg_forslag(self):
         formasjon = TAKTIKK_KATALOG.get(
@@ -173,6 +170,9 @@ class SpillmotorPygame:
         self.manager_etternavn       = ""
         self.ui.manager_fornavn      = ""
         self.ui.manager_etternavn    = ""
+        self._tabeller: dict[str, Seriatabell] = {}
+        self.cup_motor = None
+        self.spillermarked = SpillerMarked()
 
     # =========================================================================
     # OPPSTART
@@ -415,7 +415,7 @@ class SpillmotorPygame:
     # =========================================================================
     # KALENDER-HENDELSE
     # =========================================================================
-def _håndter_kalender_hendelse(self, dag, dato: datetime.date):
+    def _håndter_kalender_hendelse(self, dag, dato: datetime.date):
         for hendelse in dag.hendelser:
             
             # --- AI OVERGANGER ---
@@ -458,10 +458,6 @@ def _håndter_kalender_hendelse(self, dag, dato: datetime.date):
                 dag.kamper.extend(kamper)
                 navn = self.cup_motor.aktiv_cup.RUNDE_NAVN.get(runde_nr, "Cuprunde")
                 self._vis_info("NM-CUP", [f"Trekning fullført for {navn}."])
-            elif hendelse in (KalenderHendelse.OVERGANG_1_AAPNER,
-                               KalenderHendelse.OVERGANG_2_AAPNER):
-                self._vis_info("OVERGANGSVINDUET ÅPNER",
-                                ["Du kan nå kjøpe og selge spillere."])
             elif hendelse in (KalenderHendelse.OVERGANG_1_LUKKER,
                                KalenderHendelse.OVERGANG_2_LUKKER):
                 self._vis_info("OVERGANGSVINDUET LUKKER",
@@ -546,7 +542,7 @@ def _håndter_kalender_hendelse(self, dag, dato: datetime.date):
             )
         )
 
-def _vis_tabell(self, on_tilbake: callable):
+    def _vis_tabell(self, on_tilbake: callable):
         self.ui.push_skjerm(
             TabellSkjerm(
                 tabeller=self._tabeller,
@@ -581,20 +577,6 @@ def _vis_tabell(self, on_tilbake: callable):
             aktiv_tabell = self._tabeller[kamp.hjemme.divisjon]
             aktiv_tabell.registrer_resultat(resultat)
             aktiv_tabell._statistikk_register.oppdater_fra_kampresultat(resultat)
-            
-            # Lagets resultat-historikk (brukes for styre-vurdering)
-            if self.spiller_klubb in (kamp.hjemme, kamp.borte):
-                lag_res = ("S" if resultat.vinner_navn == self.spiller_klubb.navn else "U" if resultat.hjemme_maal == resultat.borte_maal else "T")
-                if not hasattr(self.spiller_klubb, '_resultat_historikk'):
-                    self.spiller_klubb._resultat_historikk = []
-                self.spiller_klubb._resultat_historikk.append(lag_res)
-                
-                self.hendelser.sjekk_lag_terskler(
-                    klubb=self.spiller_klubb,
-                    resultater=self.spiller_klubb._resultat_historikk,
-                    tabellplass=aktiv_tabell.plass(self.spiller_klubb.navn),
-                    runde_nr=len(self.spiller_klubb._resultat_historikk),
-                )
 
         # Oppdater spillerstatistikk
         self._stat_register.oppdater_fra_kampresultat(resultat)
@@ -606,18 +588,19 @@ def _vis_tabell(self, on_tilbake: callable):
             startet = s in builder.startellever
             self.hendelser.registrer_kampresultat(s, rating, startet)
 
-        # Lagets resultat-historikk
-        if not hasattr(self.spiller_klubb, '_resultat_historikk'):
-            self.spiller_klubb._resultat_historikk = []
-        lag_res = ("S" if resultat.vinner_navn == self.spiller_klubb.navn else
-                   "U" if resultat.hjemme_maal == resultat.borte_maal else "T")
-        self.spiller_klubb._resultat_historikk.append(lag_res)
-        self.hendelser.sjekk_lag_terskler(
-            klubb       = self.spiller_klubb,
-            resultater  = self.spiller_klubb._resultat_historikk,
-            tabellplass = self._tabell.plass(self.spiller_klubb.navn) if self._tabell else 8,
-            runde_nr    = len(self.spiller_klubb._resultat_historikk),
-        )
+        # Lagets resultat-historikk (brukes for styre-vurdering)
+        if self.spiller_klubb in (kamp.hjemme, kamp.borte):
+            lag_res = ("S" if resultat.vinner_navn == self.spiller_klubb.navn else "U" if resultat.hjemme_maal == resultat.borte_maal else "T")
+            if not hasattr(self.spiller_klubb, '_resultat_historikk'):
+                self.spiller_klubb._resultat_historikk = []
+              self.spiller_klubb._resultat_historikk.append(lag_res)
+                
+              self.hendelser.sjekk_lag_terskler(
+                  klubb=self.spiller_klubb,
+                  resultater=self.spiller_klubb._resultat_historikk,
+                  tabellplass=aktiv_tabell.plass(self.spiller_klubb.navn),
+                  runde_nr=len(self.spiller_klubb._resultat_historikk),
+              )
 
         # Vis kamprapport (modal — venter til bruker klikker Fortsett)
         ferdig = {"v": False}
