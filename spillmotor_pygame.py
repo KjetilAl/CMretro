@@ -61,6 +61,9 @@ class TroppBuilder:
         self.startellever: list[Person] = []
         self.benk: list[Person]         = []
         self._bygg_forslag()
+        self._tabeller: dict[str, Seriatabell] = {}  # Nå en dictionary!
+        self.cup_motor = None
+        self.spillermarked = SpillerMarked()
 
     def _bygg_forslag(self):
         formasjon = TAKTIKK_KATALOG.get(
@@ -263,6 +266,18 @@ class SpillmotorPygame:
         self.liga = opprett_ligasystem()
         populer_ligasystem_fra_db(self.liga, list(self.klubber.values()))
 
+    # 1. GENERER STARTKONTRAKTER FOR ALLE SPILLERE
+        for klubb in self.klubber.values():
+            for spiller in klubb.spillerstall:
+                if spiller.kontrakt is None:
+                    spiller.kontrakt = Kontrakt(
+                        ukelonn=_minstelonn_krav(spiller),
+                        utlops_aar=SESONG_AAR + random.randint(1, 4),
+                        signert_aar=SESONG_AAR,
+                        spiller_verdi_ved_signering=spiller.markedsverdi_nok
+                    )
+
+        # 2. BYGG KALENDER
         self.kalender = SpillKalender(start_aar=SESONG_AAR)
         self.hendelser.sett_dato(datetime.date(SESONG_AAR, 1, 1))
 
@@ -281,18 +296,18 @@ class SpillmotorPygame:
 
         self.kalender.populer_serierunder(kombinert)
 
-        # Opprett tabeller for alle divisjoner
-        self._tabeller = {}
-        for k in self.klubber.values():
-            div = getattr(k, 'divisjon', 'Ukjent')
-            if div not in self._tabeller:
-                self._tabeller[div] = Seriatabell(div)
-                self._tabeller[div]._statistikk_register = self._stat_register
-            self._tabeller[div].registrer_klubb(getattr(k, 'navn', '?'))
+        # 3. OPPRETT TABELLER (Hver avdeling får sin egen, med eget statistikkregister)
+        avdelinger = [self.liga.eliteserien, self.liga.obos] + self.liga.div_2 + self.liga.div_3
+        for avd in avdelinger:
+            t = Seriatabell(avd.navn)
+            t._statistikk_register = SpillerStatistikkRegister()
+            for k in avd.lag:
+                t.registrer_klubb(getattr(k, 'navn', '?'))
+            self._tabeller[avd.navn] = t
 
-        # Oppdater self._tabell med tabellen til spillerens klubb, for bakoverkompatibilitet
-        spiller_div = getattr(self.spiller_klubb, 'divisjon', 'Eliteserien')
-        self._tabell = self._tabeller.get(spiller_div)
+        # 4. START CUPEN
+        self.cup_motor = opprett_cup_system()
+        self.cup_motor.start_ny_cup_sesong(SESONG_AAR)
 
     # =========================================================================
     # GAME LOOP
@@ -316,13 +331,17 @@ class SpillmotorPygame:
             self._vis_hendelsesdag(dag, dato)
 
     def _hvil_alle(self, dag):
+        # Trekk lønn og betal regninger hver mandag
+        if self.kalender.dagens_dato.weekday() == 0:
+            for klubb in self.klubber.values():
+                klubb.betal_ukentlige_utgifter()
+
         for klubb in self.klubber.values():
             for spiller in klubb.spillerstall:
                 var_skadet = getattr(spiller, 'skadet', False)
                 if hasattr(spiller, 'hvil_en_dag'):
                     spiller.hvil_en_dag()
-                er_frisk = not getattr(spiller, 'skadet', False)
-                if var_skadet and er_frisk:
+                if var_skadet and not getattr(spiller, 'skadet', False):
                     self.hendelser.sjekk_friskmelding(spiller)
 
     # =========================================================================
@@ -396,15 +415,49 @@ class SpillmotorPygame:
     # =========================================================================
     # KALENDER-HENDELSE
     # =========================================================================
-    def _håndter_kalender_hendelse(self, dag, dato: datetime.date):
-        dato_str = dato.strftime('%d.%m.%Y')
+def _håndter_kalender_hendelse(self, dag, dato: datetime.date):
         for hendelse in dag.hendelser:
+            
+            # --- AI OVERGANGER ---
+            if hendelse in (KalenderHendelse.OVERGANG_1_AAPNER, KalenderHendelse.OVERGANG_2_AAPNER):
+                self._vis_info("OVERGANGSVINDUET ÅPNER", ["AI-klubbene er nå aktive på markedet."])
+                # La alle AI-klubber forsøke å forsterke laget
+                for klubb in self.klubber.values():
+                    if klubb != self.spiller_klubb:
+                        ai = AIManager(klubb)
+                        ai.kjøp_runde(self.spillermarked, SESONG_AAR)
             if hendelse == KalenderHendelse.SERIESTART:
                 self._vis_info(
                     "SESONGEN STARTER!",
                     [f"{self.spiller_klubb.navn} er klare for Eliteserien {SESONG_AAR}.",
                      "", "Lykke til!"],
                 )
+                # --- CUP TREKNINGER ---
+            elif hendelse == KalenderHendelse.CUP_RUNDE_1:
+                div3_lag = [lag for avd in self.liga.div_3 for lag in avd.lag]
+                kamper = self.cup_motor.kjor_runde_1(div3_lag)
+                dag.kamper.extend(kamper)
+                self._vis_info("NM-CUP", ["1. runde av cupen er trukket!"])
+
+            elif hendelse == KalenderHendelse.CUP_RUNDE_2:
+                div2_lag = [lag for avd in self.liga.div_2 for lag in avd.lag]
+                kamper = self.cup_motor.kjor_runde_2(div2_lag)
+                dag.kamper.extend(kamper)
+                self._vis_info("NM-CUP", ["2. runde av cupen er trukket!"])
+
+            elif hendelse == KalenderHendelse.CUP_RUNDE_3:
+                elite = self.liga.eliteserien.lag
+                obos = self.liga.obos.lag
+                kamper = self.cup_motor.kjor_runde_3(elite, obos)
+                dag.kamper.extend(kamper)
+                self._vis_info("NM-CUP", ["3. runde trukket. Eliteserien trer inn!"])
+
+            elif hendelse in [KalenderHendelse.CUP_RUNDE_4, KalenderHendelse.CUP_RUNDE_5, KalenderHendelse.CUP_SEMIFINALE, KalenderHendelse.CUP_FINALE]:
+                runde_nr = int(hendelse.name.split("_")[-1]) if "RUNDE" in hendelse.name else (6 if "SEMI" in hendelse.name else 7)
+                kamper = self.cup_motor.kjor_fri_trekning(runde_nr)
+                dag.kamper.extend(kamper)
+                navn = self.cup_motor.aktiv_cup.RUNDE_NAVN.get(runde_nr, "Cuprunde")
+                self._vis_info("NM-CUP", [f"Trekning fullført for {navn}."])
             elif hendelse in (KalenderHendelse.OVERGANG_1_AAPNER,
                                KalenderHendelse.OVERGANG_2_AAPNER):
                 self._vis_info("OVERGANGSVINDUET ÅPNER",
@@ -493,13 +546,11 @@ class SpillmotorPygame:
             )
         )
 
-    def _vis_tabell(self, on_tilbake: callable):
-        if not hasattr(self, '_tabeller') or not self._tabeller:
-            on_tilbake()
-            return
+def _vis_tabell(self, on_tilbake: callable):
         self.ui.push_skjerm(
             TabellSkjerm(
-                self._tabeller,
+                tabeller=self._tabeller,
+                aktiv_divisjon=self.spiller_klubb.divisjon,
                 spiller_klubb_navn=getattr(self.spiller_klubb, 'navn', ''),
                 on_tilbake=lambda: self.ui.pop_skjerm() or on_tilbake(),
             )
@@ -525,16 +576,25 @@ class SpillmotorPygame:
 
         kamp.registrer_resultat(resultat.hjemme_maal, resultat.borte_maal)
 
-        # Oppdater tabell
-        div_hjemme = getattr(hjemme_klubb, 'divisjon', 'Ukjent')
-        div_borte = getattr(borte_klubb, 'divisjon', 'Ukjent')
-        if hasattr(self, '_tabeller'):
-            if div_hjemme in self._tabeller:
-                self._tabeller[div_hjemme].registrer_resultat(resultat)
-            # Hvis lagene mot formodning spiller tvers av divisjoner (f.eks cup),
-            # vil vi i utgangspunktet bare registrere seriekamper i tabellen.
-            # Metoden registrer_resultat i Seriatabell legger uansett til begge lag.
-            # For sikkerhets skyld, hvis det er seriekamp, er div_hjemme == div_borte.
+# Oppdater riktig tabell og statistikkregister
+        if kamp.kamp_type == "serie" and kamp.hjemme.divisjon in self._tabeller:
+            aktiv_tabell = self._tabeller[kamp.hjemme.divisjon]
+            aktiv_tabell.registrer_resultat(resultat)
+            aktiv_tabell._statistikk_register.oppdater_fra_kampresultat(resultat)
+            
+            # Lagets resultat-historikk (brukes for styre-vurdering)
+            if self.spiller_klubb in (kamp.hjemme, kamp.borte):
+                lag_res = ("S" if resultat.vinner_navn == self.spiller_klubb.navn else "U" if resultat.hjemme_maal == resultat.borte_maal else "T")
+                if not hasattr(self.spiller_klubb, '_resultat_historikk'):
+                    self.spiller_klubb._resultat_historikk = []
+                self.spiller_klubb._resultat_historikk.append(lag_res)
+                
+                self.hendelser.sjekk_lag_terskler(
+                    klubb=self.spiller_klubb,
+                    resultater=self.spiller_klubb._resultat_historikk,
+                    tabellplass=aktiv_tabell.plass(self.spiller_klubb.navn),
+                    runde_nr=len(self.spiller_klubb._resultat_historikk),
+                )
 
         # Oppdater spillerstatistikk
         self._stat_register.oppdater_fra_kampresultat(resultat)
