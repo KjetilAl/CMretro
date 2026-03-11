@@ -625,6 +625,7 @@ def lag_spiller(
     alder: Optional[int] = None,
     fornavn: Optional[str] = None,
     etternavn: Optional[str] = None,
+    **kwargs  # <-- NYTT: Fanger opp personlighetsverdier fra databasen
 ) -> Person:
     """
     Genererer en spiller med tilfeldige men realistiske attributter
@@ -663,6 +664,7 @@ def lag_spiller(
         potensial=potensial,
         rykte=max(1, min(20, ovr_mål + random.randint(-4, 2))),
         **attrs,
+        **kwargs  # <-- NYTT: Sender personlighet videre til Person-klassen
     )
     p.primær_posisjon = posisjon
     return p
