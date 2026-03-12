@@ -357,9 +357,10 @@ def _bygg_klubb(d: dict) -> Klubb:
         okonomi_problem         = 1,
     )
     # Beholder ID-ene som strenger inntil videre, lette å koble senere
-    klubb.rival_ider = d.get("rivaler", []) 
+    klubb.rival_ider = d.get("rivaler", [])
     klubb.historisk_styrke = styrke
     klubb.by = d.get("by", "")
+    klubb.sone = d.get("sone")   # Avdelingsindeks: div2=1/2, div3=1-6 (None for elite/OBOS)
     return klubb
 
 
