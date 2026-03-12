@@ -903,8 +903,6 @@ class SpillerstallSkjerm(SkjermData):
     def __init__(self, klubb, on_tilbake: Callable, on_spillerkort: Callable = None):
         self.klubb      = klubb
         self.on_tilbake = on_tilbake
-        self.on_forrige = on_forrige
-        self.on_neste = on_neste
         self.on_spillerkort = on_spillerkort
         self._scroll    = 0
         self._hover     = -1
@@ -1051,8 +1049,6 @@ class TabellSkjerm(SkjermData):
         self._aktiv_div_idx = self.divisjoner.index(aktiv_divisjon) if aktiv_divisjon in self.divisjoner else 0
         self.spiller_klubb_navn = spiller_klubb_navn
         self.on_tilbake = on_tilbake
-        self.on_forrige = on_forrige
-        self.on_neste = on_neste
         self._fane = 0   # 0=tabell 1=toppscorere
         self._scroll = 0
         self._SYNLIGE = 11
