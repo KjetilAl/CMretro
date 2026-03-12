@@ -378,7 +378,15 @@ class LigaSystem:
         avdelinger: list[Avdeling],
         sone_kart: dict
     ) -> Avdeling:
-        """Finner riktig avdeling basert på klubbens geografiske sone."""
+        """Finner riktig avdeling basert på klubbens geografiske sone.
+
+        Bruker klubbens sone-attributt (numerisk, fra databasen) hvis tilgjengelig,
+        ellers GEOGRAFISK_SONE-oppslaget (for elite/OBOS-lag uten sone-tall).
+        """
+        sone_nr = getattr(klubb, 'sone', None)
+        if sone_nr is not None:
+            avd_idx = max(0, min(len(avdelinger) - 1, int(sone_nr) - 1))
+            return avdelinger[avd_idx]
         sone = GEOGRAFISK_SONE.get(klubb.navn, None)
         avd_indeks = sone_kart.get(sone, 0)   # Fallback: avdeling 0
         return avdelinger[avd_indeks]
@@ -582,27 +590,31 @@ def opprett_ligasystem() -> LigaSystem:
     )
 
 def populer_ligasystem_fra_db(liga: LigaSystem, alle_klubber: list[Klubb]):
-    """Fordeler klubbene fra databasen inn i de riktige avdelingene."""
-    # Sorterer dem basert på database-feltet
+    """Fordeler klubbene fra databasen inn i de riktige avdelingene.
+
+    Bruker sone-feltet fra databasen (int 1-6) for direkte plassering i
+    riktig avdeling. Elite/OBOS-lag har sone=None og trenger ingen fordeling.
+    """
     elite = [k for k in alle_klubber if k.divisjon == "Eliteserien"]
     obos  = [k for k in alle_klubber if k.divisjon == "OBOS-ligaen"]
     div2  = [k for k in alle_klubber if k.divisjon == "PostNord-ligaen"]
     div3  = [k for k in alle_klubber if k.divisjon == "Norsk Tipping-ligaen"]
-    
-    # Eliteserien & OBOS
+
     liga.eliteserien.legg_til_lag(elite)
     liga.obos.legg_til_lag(obos)
-    
-    # 2. Divisjon (To avdelinger basert på sone)
+
+    # 2. divisjon: sone=1 → Avd. A (index 0), sone=2 → Avd. B (index 1)
     for lag in div2:
-        avd = liga._geografisk_avdeling(lag, liga.div_2, DIV2_SONE_TIL_AVD)
-        avd.legg_til_lag([lag])
-        
-    # 3. Divisjon (Seks avdelinger basert på sone)
+        sone = getattr(lag, 'sone', None)
+        avd_idx = max(0, min(1, int(sone or 1) - 1))
+        liga.div_2[avd_idx].legg_til_lag([lag])
+
+    # 3. divisjon: sone=1-6 → Avd. A-F (index 0-5)
     for lag in div3:
-        avd = liga._geografisk_avdeling(lag, liga.div_3, DIV3_SONE_TIL_AVD)
-        avd.legg_til_lag([lag])
-        
+        sone = getattr(lag, 'sone', None)
+        avd_idx = max(0, min(5, int(sone or 1) - 1))
+        liga.div_3[avd_idx].legg_til_lag([lag])
+
     # Generer terminlister for alle avdelinger
     liga.eliteserien.generer_terminliste()
     liga.obos.generer_terminliste()

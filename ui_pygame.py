@@ -1051,7 +1051,7 @@ class TabellSkjerm(SkjermData):
         self.on_tilbake = on_tilbake
         self._fane = 0   # 0=tabell 1=toppscorere
         self._scroll = 0
-        self._SYNLIGE = 11
+        self._SYNLIGE = 16
 
     @property
     def aktiv_tabell(self):
@@ -1081,14 +1081,13 @@ class TabellSkjerm(SkjermData):
         f = Fonter.liten
         rader = self.aktiv_tabell.sorter()
 
-        pygame.draw.rect(surf, P.BLÅL, (2, 24, W_BASE-4, 8))
-        # (Kolonnetitler tegnes som før)
+        pygame.draw.rect(surf, P.BLÅL, (2, 24, W_BASE-4, 10))
         titler = [("#", 2), ("KLUBB", 14), ("K", 142), ("S", 158), ("U", 172), ("T", 186), ("MF", 200), ("MM", 216), ("MD", 232), ("P", 252)]
         for t, x in titler:
-            tegn_tekst(surf, t, (x, 25), f, P.HVIT)
+            tegn_tekst(surf, t, (x, 26), f, P.HVIT)
 
-        rad_h = 12
-        y0 = 34
+        rad_h = 20
+        y0 = 36
         start = self._scroll
         slutt = min(start + self._SYNLIGE, len(rader))
 
@@ -1157,6 +1156,17 @@ class TabellSkjerm(SkjermData):
                 self._scroll = max(0, self._scroll - 1)
         elif event.type == pygame.MOUSEWHEEL:
             self._scroll = max(0, min(maks_scroll, self._scroll - event.y))
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            mx, my = ui.base_mus()
+            # Fane-knapper: TABELL (x=2-80) og TOPPSCORERE (x=82-160) ved y=13-23
+            for fi in range(2):
+                bx = 2 + fi * 80
+                if bx <= mx <= bx + 78 and 13 <= my <= 23:
+                    self._fane = fi
+                    self._scroll = 0
+            # TILBAKE-knapp
+            if W_BASE // 2 - 30 <= mx <= W_BASE // 2 + 30 and H_BASE - 13 <= my <= H_BASE - 2:
+                self.on_tilbake()
             
 # ─────────────────────────────────────────────────────────────────────────────
 # SKJERM: KAMPRAPPORT

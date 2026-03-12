@@ -306,8 +306,30 @@ class SpillmotorPygame:
             self._tabeller[avd.navn] = t
 
         # 4. START CUPEN
+        # Spillet begynner 1. januar, men NM-cupen overlapper to sesonger.
+        # Runde 1–3 for den pågående 2024/2025-cupen er allerede spilt (høst 2024).
+        # Vi bygger og simulerer disse rundene (alle LOD 0) slik at runde 4,
+        # semifinale og finale kan trekkes normalt utover vinteren/våren 2025.
+        from cup import CupTurnering
         self.cup_motor = opprett_cup_system()
-        self.cup_motor.start_ny_cup_sesong(SESONG_AAR)
+
+        cup_pagar = CupTurnering(start_aar=SESONG_AAR - 1)
+        _div3_lag  = [lag for avd in self.liga.div_3 for lag in avd.lag]
+        _div2_lag  = [lag for avd in self.liga.div_2 for lag in avd.lag]
+        _elite_lag = list(self.liga.eliteserien.lag)
+        _obos_lag  = list(self.liga.obos.lag)
+
+        self.cup_motor.aktiv_cup = cup_pagar
+        self.cup_motor.kjor_runde_1(_div3_lag)
+        for kamp in cup_pagar.runder[1]:
+            kamp.simuler_lod0()
+        self.cup_motor.kjor_runde_2(_div2_lag)
+        for kamp in cup_pagar.runder[2]:
+            kamp.simuler_lod0()
+        self.cup_motor.kjor_runde_3(_elite_lag, _obos_lag)
+        for kamp in cup_pagar.runder[3]:
+            kamp.simuler_lod0()
+        # aktiv_cup er nå cup_pagar (2024/2025) – runde 4+ trekkes via kalender-hendelser
 
     # =========================================================================
     # GAME LOOP
@@ -434,6 +456,9 @@ class SpillmotorPygame:
                 )
                 # --- CUP TREKNINGER ---
             elif hendelse == KalenderHendelse.CUP_RUNDE_1:
+                # Start ny cup-sesong (2025/2026) – den pågående 2024/2025-cupen
+                # flyttes til forrige_cup; runde 4+ fortsetter dit via aktiv_cup
+                self.cup_motor.start_ny_cup_sesong(SESONG_AAR)
                 div3_lag = [lag for avd in self.liga.div_3 for lag in avd.lag]
                 kamper = self.cup_motor.kjor_runde_1(div3_lag)
                 dag.kamper.extend(kamper)
