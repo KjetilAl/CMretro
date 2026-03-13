@@ -144,6 +144,9 @@ class Klubb:
         self._intern_uro      = intern_uro
         self._okonomi_problem = okonomi_problem
 
+        # Statistikk
+        self.cup_deltakelser: int = 0
+
         # Personell — én enkelt kilde til sannhet
         self._alt_personell: list[Person] = []
 
