@@ -1861,11 +1861,12 @@ class AndreResultaterSkjerm(SkjermData):
 # ─────────────────────────────────────────────────────────────────────────────
 class SesongsSluttSkjerm(SkjermData):
     def __init__(self, klubb_navn: str, resultater: list,
-                 tabell, on_avslutt: Callable):
-        self.klubb_navn = klubb_navn
-        self.resultater = resultater
-        self.tabell     = tabell
-        self.on_avslutt = on_avslutt
+                 tabell, on_avslutt: Callable, on_fortsett: Callable = None):
+        self.klubb_navn  = klubb_navn
+        self.resultater  = resultater
+        self.tabell      = tabell
+        self.on_avslutt  = on_avslutt
+        self.on_fortsett = on_fortsett if on_fortsett is not None else on_avslutt
 
     def tegn(self, surf, ui):
         _tegn_bakgrunn(surf)
@@ -1925,21 +1926,23 @@ class SesongsSluttSkjerm(SkjermData):
             surf.blit(pos_t, (W_BASE // 2 - pos_t.get_width() // 2, pos_y + 12))
 
         btn_rect = (W_BASE // 2 - 120, H_BASE - 70, 240, 46)
-        tegn_knapp(surf, btn_rect, "AVSLUTT", Fonter.tittel,
+        tegn_knapp(surf, btn_rect, "NESTE SESONG", Fonter.tittel,
                    hovered=ui.mus_innenfor(btn_rect))
 
-        _tegn_bunnlinje(surf, "ENTER = AVSLUTT")
+        _tegn_bunnlinje(surf, "ENTER = NESTE SESONG  |  ESC = AVSLUTT")
 
     def håndter_event(self, event, ui):
-        if event.type == pygame.KEYDOWN and event.key in (
-                pygame.K_RETURN, pygame.K_ESCAPE):
-            self.on_avslutt()
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_RETURN:
+                self.on_fortsett()
+            elif event.key == pygame.K_ESCAPE:
+                self.on_avslutt()
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             mx, my = ui.base_mus()
             btn_rect = (W_BASE // 2 - 120, H_BASE - 70, 240, 46)
             bx, by, bw, bh = btn_rect
             if bx <= mx <= bx + bw and by <= my <= by + bh:
-                self.on_avslutt()
+                self.on_fortsett()
 
 
 
