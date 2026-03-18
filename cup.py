@@ -331,6 +331,7 @@ class CupTurnering:
             per_region[region].append(lag)
 
         kamper = []
+        uparerte = []
         for region, lag_liste in per_region.items():
             random.shuffle(lag_liste)
             # Par opp lagene to og to
@@ -341,9 +342,20 @@ class CupTurnering:
                     runde=1,
                 )
                 kamper.append(kamp)
-            # Odde lag får bye (går videre uten kamp)
+            # Odde lag pareres på tvers av regioner
             if len(lag_liste) % 2 == 1:
-                self.gjenvaerende_lag.append(lag_liste[-1])
+                uparerte.append(lag_liste[-1])
+
+        # Par opp uparerte lag på tvers av regioner
+        random.shuffle(uparerte)
+        for i in range(0, len(uparerte) - 1, 2):
+            kamper.append(CupKamp(
+                hjemme=uparerte[i],
+                borte=uparerte[i + 1],
+                runde=1,
+            ))
+        if len(uparerte) % 2 == 1:
+            self.gjenvaerende_lag.append(uparerte[-1])
 
         self.runder[1] = kamper
         print(f"[NM-cup] Runde 1 trukket: {len(kamper)} kamper.")
@@ -553,13 +565,13 @@ class CupMotor:
     def kjor_runde_1(self, div3_lag: list) -> list[CupKamp]:
         """
         Runde 1: Non-league pool + 3. divisjon.
-        Fyller opp til 128 lag totalt.
+        Fyller opp til 256 lag totalt → 128 kamper.
         """
         amatorer = self.pool.hent_alle_amatorer()
-        alle_lag = amatorer + div3_lag
+        alle_lag = list(amatorer) + list(div3_lag)
 
         # Sikre at vi har nok lag — fyll opp med ekstra pool-lag om nødvendig
-        maal = 128
+        maal = 256  # 256 lag → 128 kamper
         while len(alle_lag) < maal:
             ekstra = NonLeagueLag(
                 id=9000 + len(alle_lag),
@@ -576,9 +588,11 @@ class CupMotor:
         for lag in alle_lag:
             lag.cup_deltakelser += 1
 
+        # Pass hele listen — trekning_runde_1 kombinerer non_league + div3_lag uansett
+        div3_sett = {id(l) for l in div3_lag}
         return self.aktiv_cup.trekning_runde_1(
-            non_league=amatorer[:len(amatorer)],
-            div3_lag=div3_lag,
+            non_league=[l for l in alle_lag if id(l) not in div3_sett],
+            div3_lag=[l for l in alle_lag if id(l) in div3_sett],
             maal_antall=maal,
         )
 

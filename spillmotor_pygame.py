@@ -173,6 +173,7 @@ class SpillmotorPygame:
         self._tabeller: dict[str, Seriatabell] = {}
         self.cup_motor = None
         self.spillermarked = SpillerMarked()
+        self._sesong_aar = SESONG_AAR
 
     # =========================================================================
     # OPPSTART
@@ -272,14 +273,14 @@ class SpillmotorPygame:
                 if spiller.kontrakt is None:
                     spiller.kontrakt = Kontrakt(
                         ukelonn=_minstelonn_krav(spiller),
-                        utlops_aar=SESONG_AAR + random.randint(1, 4),
-                        signert_aar=SESONG_AAR,
+                        utlops_aar=self._sesong_aar + random.randint(1, 4),
+                        signert_aar=self._sesong_aar,
                         spiller_verdi_ved_signering=spiller.markedsverdi_nok
                     )
 
         # 2. BYGG KALENDER
-        self.kalender = SpillKalender(start_aar=SESONG_AAR)
-        self.hendelser.sett_dato(datetime.date(SESONG_AAR, 1, 1))
+        self.kalender = SpillKalender(start_aar=self._sesong_aar)
+        self.hendelser.sett_dato(datetime.date(self._sesong_aar, 1, 1))
 
         # Bygg kombinert terminliste
         kombinert = [[] for _ in range(len(self.liga.eliteserien.terminliste))]
@@ -313,7 +314,7 @@ class SpillmotorPygame:
         from cup import CupTurnering
         self.cup_motor = opprett_cup_system()
 
-        cup_pagar = CupTurnering(start_aar=SESONG_AAR - 1)
+        cup_pagar = CupTurnering(start_aar=self._sesong_aar - 1)
         _div3_lag  = [lag for avd in self.liga.div_3 for lag in avd.lag]
         _div2_lag  = [lag for avd in self.liga.div_2 for lag in avd.lag]
         _elite_lag = list(self.liga.eliteserien.lag)
@@ -335,7 +336,7 @@ class SpillmotorPygame:
     # GAME LOOP
     # =========================================================================
     def _game_loop(self):
-        """Tikker én dag om gangen. Stopper kun på hendelsesdager."""
+        """Tikker én dag om gangen. Stopper kun på hendelsesdager. Løkker i uendelig antall sesonger."""
         while self._kjører and self.ui.tikk():
             dag  = self.kalender.simuler_neste_dag()
             dato = self.kalender.dagens_dato
@@ -344,9 +345,10 @@ class SpillmotorPygame:
             self._hvil_alle(dag)
 
             if not dag.har_innhold:
-                if dato >= datetime.date(SESONG_AAR, 12, 31):
+                if self.kalender.er_siste_dag:
                     self._sesong_slutt()
-                    break
+                    if self._kjører:   # Spiller valgte å fortsette
+                        self._ny_sesong()
                 continue
 
             # Hendelsesdag — vis UI og vent
@@ -375,7 +377,9 @@ class SpillmotorPygame:
         spillerens klubb. Bruker KampMotor med AI-oppstillinger.
         Oppdaterer kamp.registrer_resultat() og tabell.
         """
-        for kamp in getattr(dag, 'kamper', []):
+        for ki in getattr(dag, 'kamper', []):
+            # Pakk ut KampInfo-wrapper om nødvendig
+            kamp = getattr(ki, 'kamp', ki)
             hjemme = getattr(kamp, 'hjemme', None)
             borte  = getattr(kamp, 'borte', None)
             if hjemme is None or borte is None:
@@ -383,6 +387,13 @@ class SpillmotorPygame:
             if hjemme == self.spiller_klubb or borte == self.spiller_klubb:
                 continue
             if getattr(kamp, 'spilt', False) or getattr(kamp, 'resultat', None) is not None:
+                continue
+            # Cup-kamper mellom non-league/div3: bruk LOD-0-simulering
+            if hasattr(kamp, 'simuler_lod0'):
+                try:
+                    kamp.simuler_lod0()
+                except Exception:
+                    pass
                 continue
             try:
                 h_builder = TroppBuilder(hjemme)
@@ -399,19 +410,20 @@ class SpillmotorPygame:
 
                 if hasattr(self, '_stat_register'):
                     self._stat_register.oppdater_fra_kampresultat(resultat)
-            except Exception as e:
-                # Ikke krasj hvis AI-simulering feiler for ett lag
+            except Exception:
                 pass
 
     def _vis_hendelsesdag(self, dag, dato: datetime.date):
         self._simuler_alle_andre_kamper(dag)
 
         har_kamp    = dag.har_kamper if hasattr(dag, 'har_kamper') else bool(dag.kamper)
-        mine_kamper = [
-            k for k in dag.kamper
-            if (getattr(k, 'hjemme', None) == self.spiller_klubb or
-                getattr(k, 'borte', None) == self.spiller_klubb)
-        ]
+        mine_kamper = []
+        for k in dag.kamper:
+            # Pakk ut KampInfo-wrapper om nødvendig
+            inner = getattr(k, 'kamp', k)
+            if (getattr(inner, 'hjemme', None) == self.spiller_klubb or
+                    getattr(inner, 'borte', None) == self.spiller_klubb):
+                mine_kamper.append(inner)
 
         # Vis uleste nyheter som InfoSkjerm
         uleste = [h for h in self.hendelser.nyhets_ko if not h.lest]
@@ -451,14 +463,13 @@ class SpillmotorPygame:
             if hendelse == KalenderHendelse.SERIESTART:
                 self._vis_info(
                     "SESONGEN STARTER!",
-                    [f"{self.spiller_klubb.navn} er klare for Eliteserien {SESONG_AAR}.",
+                    [f"{self.spiller_klubb.navn} er klare for Eliteserien {self._sesong_aar}.",
                      "", "Lykke til!"],
                 )
                 # --- CUP TREKNINGER ---
             elif hendelse == KalenderHendelse.CUP_RUNDE_1:
-                # Start ny cup-sesong (2025/2026) – den pågående 2024/2025-cupen
-                # flyttes til forrige_cup; runde 4+ fortsetter dit via aktiv_cup
-                self.cup_motor.start_ny_cup_sesong(SESONG_AAR)
+                # Start ny cup-sesong – den pågående cupen flyttes til forrige_cup
+                self.cup_motor.start_ny_cup_sesong(self._sesong_aar)
                 div3_lag = [lag for avd in self.liga.div_3 for lag in avd.lag]
                 kamper = self.cup_motor.kjor_runde_1(div3_lag)
                 dag.kamper.extend(kamper)
@@ -599,15 +610,16 @@ class SpillmotorPygame:
         hjemme_opp = hjemme_builder.bygg_oppstilling()
         borte_opp  = borte_builder.bygg_oppstilling()
 
-        motor    = KampMotor(tillat_ekstraomganger=(kamp.kamp_type == "cup"))
+        kamp_type = getattr(kamp, 'kamp_type', 'cup')
+        motor    = KampMotor(tillat_ekstraomganger=(kamp_type == "cup"))
         resultat = motor.spill_kamp(
             hjemme_klubb, borte_klubb, hjemme_opp, borte_opp
         )
 
         kamp.registrer_resultat(resultat.hjemme_maal, resultat.borte_maal)
 
-# Oppdater riktig tabell og statistikkregister
-        if kamp.kamp_type == "serie" and kamp.hjemme.divisjon in self._tabeller:
+        # Oppdater riktig tabell og statistikkregister
+        if kamp_type == "serie" and getattr(kamp.hjemme, 'divisjon', None) in self._tabeller:
             aktiv_tabell = self._tabeller[kamp.hjemme.divisjon]
             aktiv_tabell.registrer_resultat(resultat)
             aktiv_tabell._statistikk_register.oppdater_fra_kampresultat(resultat)
@@ -660,12 +672,14 @@ class SpillmotorPygame:
     # =========================================================================
     def _vis_andre_resultater(self, dag, dato: datetime.date):
         dato_str = dato.strftime('%d.%m')
-        andre = [
-            k for k in dag.kamper
-            if (getattr(k, 'hjemme', None) != self.spiller_klubb and
-                getattr(k, 'borte', None) != self.spiller_klubb)
-            and getattr(k, 'spilt', False)
-        ]
+        andre = []
+        for k in dag.kamper:
+            inner = getattr(k, 'kamp', k)
+            hjemme = getattr(inner, 'hjemme', None)
+            borte  = getattr(inner, 'borte', None)
+            if (hjemme != self.spiller_klubb and borte != self.spiller_klubb
+                    and getattr(inner, 'spilt', False)):
+                andre.append(inner)
         if not andre:
             return
 
@@ -708,10 +722,14 @@ class SpillmotorPygame:
                 break
 
     # =========================================================================
-    # SESONG SLUTT
+    # SESONG SLUTT / NY SESONG
     # =========================================================================
     def _sesong_slutt(self):
         ferdig = {"v": False}
+
+        def _neste_sesong():
+            ferdig["v"] = True
+            self.ui.pop_skjerm()
 
         def _avslutt():
             ferdig["v"] = True
@@ -719,17 +737,28 @@ class SpillmotorPygame:
             self.ui.pop_skjerm()
 
         hist = getattr(self.spiller_klubb, '_resultat_historikk', [])
+        tabell = self._tabeller.get(
+            getattr(self.spiller_klubb, 'divisjon', ''), self._tabell
+        )
         self.ui.push_skjerm(
             SesongsSluttSkjerm(
                 klubb_navn  = getattr(self.spiller_klubb, 'navn', '?'),
                 resultater  = hist,
-                tabell      = self._tabell,
+                tabell      = tabell,
                 on_avslutt  = _avslutt,
+                on_fortsett = _neste_sesong,
             )
         )
         while self.ui.tikk():
             if ferdig["v"]:
                 break
+
+    def _ny_sesong(self):
+        """Starter ny sesong: øker årstall, nullstiller historikk og bygger ny kalender."""
+        self._sesong_aar += 1
+        if hasattr(self.spiller_klubb, '_resultat_historikk'):
+            self.spiller_klubb._resultat_historikk = []
+        self._bygg_liga_og_kalender()
 
 
 # =============================================================================

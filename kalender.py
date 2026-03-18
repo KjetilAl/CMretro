@@ -378,8 +378,8 @@ class SpillKalender:
             )
 
             for kamp in kamper_i_runde:
-                hjemme = getattr(kamp, "hjemmelag", None)
-                borte  = getattr(kamp, "bortelag",  None)
+                hjemme = getattr(kamp, "hjemme", getattr(kamp, "hjemmelag", None))
+                borte  = getattr(kamp, "borte",  getattr(kamp, "bortelag",  None))
                 dag.legg_til_kamp(KampInfo(
                     kamp=kamp,
                     hjemmelag=hjemme,
