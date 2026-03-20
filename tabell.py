@@ -321,20 +321,23 @@ class SpillerStatistikkRegister:
         Leser hendelser og spillerbørs fra et KampResultat og
         oppdaterer all spillerstatistikk automatisk.
         """
-        # Tell mål og kort per spiller fra hendelseslisten
-        mål_teller:  dict = {}
-        gul_teller:  dict = {}
-        rød_teller:  dict = {}
+        # Tell mål, assist og kort per spiller fra hendelseslisten
+        mål_teller:    dict = {}
+        assist_teller: dict = {}
+        gul_teller:    dict = {}
+        rød_teller:    dict = {}
 
         for h in resultat.hendelser:
             spiller = h.spiller
             pid = getattr(spiller, 'id', id(spiller))
             if h.type == "mål":
-                mål_teller[pid]  = mål_teller.get(pid, 0) + 1
+                mål_teller[pid]    = mål_teller.get(pid, 0) + 1
+            elif h.type == "assist":
+                assist_teller[pid] = assist_teller.get(pid, 0) + 1
             elif h.type == "gult_kort":
-                gul_teller[pid]  = gul_teller.get(pid, 0) + 1
+                gul_teller[pid]    = gul_teller.get(pid, 0) + 1
             elif h.type == "rødt_kort":
-                rød_teller[pid]  = rød_teller.get(pid, 0) + 1
+                rød_teller[pid]    = rød_teller.get(pid, 0) + 1
 
         # Alle spillere som var med i børsen fikk en kamp
         for spiller, rating in resultat.statistikk.spiller_rating.items():
@@ -342,6 +345,7 @@ class SpillerStatistikkRegister:
             self.registrer_kamp(
                 spiller,
                 mål=mål_teller.get(pid, 0),
+                assist=assist_teller.get(pid, 0),
                 gule=gul_teller.get(pid, 0),
                 røde=rød_teller.get(pid, 0),
                 rating=rating,
