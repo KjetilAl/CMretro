@@ -311,6 +311,19 @@ class LagTilstand:
                 return s
         return self.aktive_spillere[0] if self.aktive_spillere else None
 
+    def velg_assist_giver(self, scorer=None):
+        """Velger en spiller som gir målgivende pasning. Foretrekker M/A vektet etter pasning."""
+        from taktikk import POSISJON_GRUPPE
+        kandidater = [s for s in self.aktive_spillere if s is not scorer]
+        if not kandidater:
+            return None
+        vekter = [
+            getattr(s, 'pasning', getattr(s, 'ferdighet', 10))
+            * (1.5 if POSISJON_GRUPPE.get(getattr(s, 'primær_posisjon', None), 'M') in ('M', 'A') else 1.0)
+            for s in kandidater
+        ]
+        return random.choices(kandidater, weights=vekter, k=1)[0]
+
     def velg_kortkandidat(self) -> Optional[object]:
         """Velger en tilfeldig utespiller (ikke keeper) for kort/skade."""
         kandidater = [
@@ -621,8 +634,21 @@ class KampMotor:
         )
         self.resultat.hendelser.append(hendelse)
 
-        # Spillerbørs — scorer og assist
+        # Spillerbørs — scorer
         self.resultat.statistikk.juster_rating(spiller, +1.50)
+
+        # Målgivende pasning — 80 % av mål har en assist
+        if random.random() < 0.80:
+            assist_spiller = angriper.velg_assist_giver(scorer=spiller)
+            if assist_spiller:
+                self.resultat.hendelser.append(KampHendelse(
+                    minutt=minutt,
+                    type="assist",
+                    lag=lag_str,
+                    spiller=assist_spiller,
+                    detalj=maal_type,
+                ))
+                self.resultat.statistikk.juster_rating(assist_spiller, +0.75)
 
         # Forsvarerne på tapende lag mister litt
         tapende = self._borte if er_hjemme else self._hjemme

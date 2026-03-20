@@ -406,7 +406,10 @@ class SpillmotorPygame:
 
                 div_hjemme = getattr(hjemme, 'divisjon', 'Ukjent')
                 if hasattr(self, '_tabeller') and div_hjemme in self._tabeller:
-                    self._tabeller[div_hjemme].registrer_resultat(resultat)
+                    tabell = self._tabeller[div_hjemme]
+                    tabell.registrer_resultat(resultat)
+                    if hasattr(tabell, '_statistikk_register'):
+                        tabell._statistikk_register.oppdater_fra_kampresultat(resultat)
 
                 if hasattr(self, '_stat_register'):
                     self._stat_register.oppdater_fra_kampresultat(resultat)
