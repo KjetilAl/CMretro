@@ -39,6 +39,7 @@ from ui_pygame import (
     InfoSkjerm,
     AndreResultaterSkjerm,
     SesongsSluttSkjerm,
+    KlubbInfoSkjerm,
 )
 
 # =============================================================================
@@ -591,12 +592,65 @@ class SpillmotorPygame:
         )
 
     def _vis_tabell(self, on_tilbake: callable):
+        def _velg_klubb(klubb_navn: str):
+            klubb = None
+            for k in self.klubber.values():
+                if getattr(k, 'navn', None) == klubb_navn:
+                    klubb = k
+                    break
+            if klubb:
+                self._vis_klubb_info(klubb, on_tilbake=lambda: None)
+
         self.ui.push_skjerm(
             TabellSkjerm(
                 tabeller=self._tabeller,
                 aktiv_divisjon=self.spiller_klubb.divisjon,
                 spiller_klubb_navn=getattr(self.spiller_klubb, 'navn', ''),
                 on_tilbake=lambda: self.ui.pop_skjerm() or on_tilbake(),
+                on_velg_klubb=_velg_klubb,
+            )
+        )
+
+    def _vis_klubb_info(self, klubb, on_tilbake: callable):
+        """Push KlubbInfoSkjerm for any club."""
+        # Collect terminliste entries involving this club from all avdelinger
+        alle_avdelinger = (
+            [self.liga.eliteserien, self.liga.obos]
+            + list(self.liga.div_2)
+            + list(self.liga.div_3)
+        )
+        terminliste = []
+        for avd in alle_avdelinger:
+            for runde_idx, runde in enumerate(getattr(avd, 'terminliste', [])):
+                # terminliste is list of rounds, each round is a list of Kamp
+                kamper_i_runde = runde if isinstance(runde, list) else [runde]
+                for kamp in kamper_i_runde:
+                    if kamp.hjemme == klubb or kamp.borte == klubb:
+                        # Attach runde number for display
+                        if not hasattr(kamp, 'runde'):
+                            kamp.runde = runde_idx + 1
+                        terminliste.append(kamp)
+
+        tabell = self._tabeller.get(getattr(klubb, 'divisjon', ''))
+        stat_register = (
+            tabell._statistikk_register
+            if tabell and hasattr(tabell, '_statistikk_register')
+            else None
+        )
+
+        def _tilbake():
+            self.ui.pop_skjerm()
+            if on_tilbake:
+                on_tilbake()
+
+        self.ui.push_skjerm(
+            KlubbInfoSkjerm(
+                klubb=klubb,
+                tabell=tabell,
+                terminliste=terminliste,
+                stat_register=stat_register,
+                on_tilbake=_tilbake,
+                on_spillerkort=lambda s, l, i: self._vis_spillerkort(s, l, i),
             )
         )
 
