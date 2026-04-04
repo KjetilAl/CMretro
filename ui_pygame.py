@@ -677,6 +677,268 @@ class VelgKlubbSkjerm(SkjermData):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# SCREEN: MANAGER HUB (landing page)
+# ─────────────────────────────────────────────────────────────────────────────
+class HubSkjerm(SkjermData):
+    """
+    Persistent manager dashboard — the "home base" between events.
+    Shows club status, next match, navigation and a mini league table.
+    """
+
+    def __init__(self, spiller_klubb, dato, tabeller: dict,
+                 uleste_antall: int, manager_navn: str,
+                 neste_kamp=None,           # (dato, kamp) or None
+                 siste_resultat=None,       # (hjemme_navn, h_maal, borte_navn, b_maal) or None
+                 on_innboks: Callable = None,
+                 on_spillerstall: Callable = None,
+                 on_tabell: Callable = None,
+                 on_terminliste: Callable = None,
+                 on_laguttak: Callable = None,
+                 on_klubbinfo: Callable = None,
+                 on_fortsett: Callable = None):
+        self.spiller_klubb  = spiller_klubb
+        self.dato           = dato
+        self.tabeller       = tabeller
+        self.uleste_antall  = uleste_antall
+        self.manager_navn   = manager_navn
+        self.neste_kamp     = neste_kamp        # (dato, kamp) or None
+        self.siste_resultat = siste_resultat    # (h, hm, b, bm) or None
+        self.on_innboks     = on_innboks     or (lambda: None)
+        self.on_spillerstall= on_spillerstall or (lambda: None)
+        self.on_tabell      = on_tabell      or (lambda: None)
+        self.on_terminliste = on_terminliste or (lambda: None)
+        self.on_laguttak    = on_laguttak    or (lambda: None)
+        self.on_klubbinfo   = on_klubbinfo   or (lambda: None)
+        self.on_fortsett    = on_fortsett    or (lambda: None)
+
+    # ── Internal helpers ──────────────────────────────────────────────────────
+
+    def _nav_rader(self):
+        innboks_tekst = f"F1   INNBOKS"
+        if self.uleste_antall > 0:
+            innboks_tekst += f"  [{self.uleste_antall} NY]"
+        return [
+            (innboks_tekst,       self.on_innboks,       self.uleste_antall > 0),
+            ("F2   SPILLERSTALL", self.on_spillerstall,  False),
+            ("F3   SERIATABELL",  self.on_tabell,        False),
+            ("F4   TERMINLISTE",  self.on_terminliste,   False),
+            ("F5   LAGUTTAK & TAKTIKK", self.on_laguttak, False),
+            ("F6   KLUBBINFO",    self.on_klubbinfo,     False),
+        ]
+
+    def _mini_tabell(self):
+        """Return up to 6 sorted rows from player's division table."""
+        div = getattr(self.spiller_klubb, 'divisjon', '')
+        tabell = self.tabeller.get(div)
+        if not tabell:
+            return []
+        return tabell.sorter()[:6]
+
+    def _tabell_plass(self):
+        div = getattr(self.spiller_klubb, 'divisjon', '')
+        tabell = self.tabeller.get(div)
+        if tabell:
+            return tabell.plass(getattr(self.spiller_klubb, 'navn', ''))
+        return -1
+
+    # ── Drawing ───────────────────────────────────────────────────────────────
+
+    def tegn(self, surf, ui):
+        _tegn_bakgrunn(surf)
+
+        dato_str = self.dato.strftime('%d.%m.%Y') if self.dato else ""
+        _tegn_topplinje(
+            surf,
+            getattr(self.spiller_klubb, 'navn', '').upper(),
+            "NORSK FOOTBALL MANAGER",
+            self.manager_navn,
+        )
+
+        y = 28
+
+        # ── Club status bar ───────────────────────────────────────────────────
+        BAR_H = 46
+        pygame.draw.rect(surf, P.PANEL, (0, y, W_BASE, BAR_H))
+        tegn_linje_h(surf, P.HEADER_KANT, 0, y, W_BASE, 1)
+        tegn_linje_h(surf, P.HEADER_KANT, 0, y + BAR_H - 1, W_BASE, 1)
+
+        klubb_navn = getattr(self.spiller_klubb, 'navn', '?')
+        div_navn   = getattr(self.spiller_klubb, 'divisjon', '?')
+        plass      = self._tabell_plass()
+        saldo      = getattr(self.spiller_klubb, 'saldo', 0)
+        saldo_str  = f"Kr {saldo:,.0f}".replace(",", " ") if saldo is not None else "–"
+
+        t_klub = Fonter.stor.render(klubb_navn.upper(), True, P.GULT)
+        surf.blit(t_klub, (14, y + 12))
+
+        sep_x = 14 + t_klub.get_width() + 16
+        tegn_tekst(surf, div_navn, (sep_x, y + 15), Fonter.normal, P.TEKST_SVAK)
+
+        if plass > 0:
+            plass_farge = P.GRØNN if plass <= 3 else (P.GULT if plass <= 6 else P.TEKST)
+            plass_str = f"{plass}. PLASS"
+            tegn_tekst(surf, plass_str, (sep_x + 120, y + 15), Fonter.normal, plass_farge)
+
+        tegn_tekst(surf, dato_str, (W_BASE - 200, y + 8), Fonter.normal, P.TEKST)
+        tegn_tekst(surf, saldo_str, (W_BASE - 200, y + 26), Fonter.liten, P.GRØNNL)
+
+        y += BAR_H + 4
+
+        # ── Next match panel ──────────────────────────────────────────────────
+        KAMP_H = 58
+        pygame.draw.rect(surf, P.HEADER, (0, y, W_BASE, KAMP_H))
+        tegn_linje_h(surf, P.HEADER_KANT, 0, y, W_BASE, 1)
+        tegn_linje_h(surf, P.HEADER_KANT, 0, y + KAMP_H - 1, W_BASE, 1)
+
+        if self.neste_kamp:
+            neste_dato, kamp = self.neste_kamp
+            er_hjemme   = (kamp.hjemme == self.spiller_klubb)
+            motstander  = kamp.borte if er_hjemme else kamp.hjemme
+            mot_navn    = getattr(motstander, 'navn', '?')
+            sted_tekst  = "HJEMMEKAMP" if er_hjemme else "BORTEKAMP"
+            kamp_type   = getattr(kamp, 'kamp_type', 'serie').upper()
+            dato_tekst  = neste_dato.strftime('%d.%m.%Y') if neste_dato else "?"
+            dager       = (neste_dato - self.dato).days if neste_dato and self.dato else 0
+            dager_str   = f"Om {dager} dag{'er' if dager != 1 else ''}" if dager > 0 else "I DAG"
+
+            tegn_tekst(surf, "NESTE KAMP", (14, y + 6), Fonter.fet, P.TEKST_SVAK)
+            tegn_tekst(surf, dager_str, (110, y + 6), Fonter.fet, P.CYAN)
+            tegn_tekst(surf, f"·  {dato_tekst}", (200, y + 6), Fonter.fet, P.TEKST_SVAK)
+
+            h_tekst = klubb_navn if er_hjemme else mot_navn
+            b_tekst = mot_navn if er_hjemme else klubb_navn
+            t_h  = Fonter.stor.render(h_tekst, True, P.GULT if er_hjemme else P.TEKST)
+            t_vs = Fonter.fet.render("VS", True, P.TEKST_SVAK)
+            t_b  = Fonter.stor.render(b_tekst, True, P.TEKST if er_hjemme else P.GULT)
+
+            mid_x = W_BASE // 2
+            surf.blit(t_h,  (mid_x - t_vs.get_width()//2 - t_h.get_width() - 14, y + 28))
+            surf.blit(t_vs, (mid_x - t_vs.get_width()//2, y + 32))
+            surf.blit(t_b,  (mid_x + t_vs.get_width()//2 + 14, y + 28))
+
+            tegn_tekst(surf, sted_tekst, (W_BASE - 160, y + 6), Fonter.fet, P.TEKST_SVAK)
+            tegn_tekst(surf, kamp_type,  (W_BASE - 160, y + 26), Fonter.liten, P.BLÅLL)
+        else:
+            tegn_tekst(surf, "Ingen kommende kamper", (14, y + 20), Fonter.normal, P.TEKST_SVAK)
+
+        y += KAMP_H + 6
+
+        # ── Navigation column (left) + mini table (right) ─────────────────────
+        NAV_W  = 510
+        TBL_X  = NAV_W + 14
+        TBL_W  = W_BASE - TBL_X - 4
+        BTN_H  = 46
+        BTN_GAP = 6
+        mx, my = ui.base_mus()
+
+        rader = self._nav_rader()
+        for i, (tekst, _, er_uthevet) in enumerate(rader):
+            ry = y + i * (BTN_H + BTN_GAP)
+            rect = (4, ry, NAV_W, BTN_H)
+            er_hover = ui.mus_innenfor(rect)
+            farge_tekst = None
+            if er_uthevet:
+                # Draw subtle accent border for inbox with unread
+                pygame.draw.rect(surf, P.PANEL, rect)
+                pygame.draw.rect(surf, P.CYAN, rect, 1)
+                t = Fonter.stor.render(tekst, True, P.CYAN if not er_hover else P.HVIT)
+            else:
+                tegn_knapp(surf, rect, tekst, Fonter.stor, hovered=er_hover)
+                t = None
+            if t and er_uthevet:
+                surf.blit(t, (rect[0] + (NAV_W - t.get_width())//2,
+                               ry + (BTN_H - t.get_height())//2))
+
+        # Mini table
+        mini_rader = self._mini_tabell()
+        if mini_rader:
+            tbl_y = y
+            pygame.draw.rect(surf, P.KOL_HEADER, (TBL_X, tbl_y, TBL_W, 20))
+            tegn_linje_h(surf, P.HEADER_KANT, TBL_X, tbl_y + 19, TBL_W, 1)
+            tegn_tekst(surf, "#", (TBL_X + 4, tbl_y + 4), Fonter.liten, P.TEKST_SVAK)
+            tegn_tekst(surf, "LAG", (TBL_X + 22, tbl_y + 4), Fonter.liten, P.TEKST_SVAK)
+            tegn_tekst(surf, "K",  (TBL_X + TBL_W - 100, tbl_y + 4), Fonter.liten, P.TEKST_SVAK)
+            tegn_tekst(surf, "P",  (TBL_X + TBL_W - 30,  tbl_y + 4), Fonter.liten, P.TEKST_SVAK)
+            tbl_y += 22
+            spiller_navn = getattr(self.spiller_klubb, 'navn', '')
+            for plass_idx, rad in enumerate(mini_rader):
+                er_spiller = (rad.klubb_navn == spiller_navn)
+                bunn = P.RAD_VALGT if er_spiller else (P.RAD_MØRK if plass_idx % 2 == 0 else P.RAD_LYS)
+                pygame.draw.rect(surf, bunn, (TBL_X, tbl_y, TBL_W, 22))
+                plass_txt = str(plass_idx + 1)
+                plass_farge = P.GRØNN if plass_idx < 3 else (P.RØD if plass_idx >= len(mini_rader) - 1 else P.TEKST_SVAK)
+                tegn_tekst(surf, plass_txt,      (TBL_X + 4,            tbl_y + 4), Fonter.liten, plass_farge)
+                tegn_tekst(surf, rad.klubb_navn, (TBL_X + 22,           tbl_y + 4), Fonter.liten,
+                           P.GULT if er_spiller else P.TEKST, max_bredde=TBL_W - 140)
+                tegn_tekst(surf, str(rad.kamp), (TBL_X + TBL_W - 100, tbl_y + 4), Fonter.liten, P.TEKST_SVAK)
+                tegn_tekst(surf, str(rad.poeng),  (TBL_X + TBL_W - 30,  tbl_y + 4), Fonter.liten,
+                           P.GULT if er_spiller else P.TEKST)
+                tbl_y += 22
+
+        # ── Last result ───────────────────────────────────────────────────────
+        if self.siste_resultat:
+            h_navn, h_maal, b_navn, b_maal = self.siste_resultat
+            res_y = y + len(rader) * (BTN_H + BTN_GAP) + 4
+            pygame.draw.rect(surf, P.PANEL, (4, res_y, NAV_W, 30))
+            tegn_linje_h(surf, P.PANEL_LYS, 4, res_y, NAV_W, 1)
+            tegn_tekst(surf, "SIST:", (10, res_y + 8), Fonter.liten, P.TEKST_SVAK)
+            res_str = f"{h_navn}  {h_maal} – {b_maal}  {b_navn}"
+            tegn_tekst(surf, res_str, (55, res_y + 8), Fonter.liten, P.TEKST, max_bredde=NAV_W - 60)
+
+        # ── Continue button ───────────────────────────────────────────────────
+        BTN_FORTS_W = 280
+        BTN_FORTS_H = 44
+        BTN_FORTS_X = (NAV_W - BTN_FORTS_W) // 2 + 4
+        BTN_FORTS_Y = H_BASE - 22 - BTN_FORTS_H - 8
+        forts_rect = (BTN_FORTS_X, BTN_FORTS_Y, BTN_FORTS_W, BTN_FORTS_H)
+        tegn_knapp(surf, forts_rect, "FORTSETT  →", Fonter.stor,
+                   hovered=ui.mus_innenfor(forts_rect))
+
+        _tegn_bunnlinje(surf, "F1–F6 = VELG SEKSJON   MELLOMROM / ENTER = FORTSETT")
+
+    # ── Event handling ────────────────────────────────────────────────────────
+
+    def håndter_event(self, event, ui):
+        rader   = self._nav_rader()
+        NAV_W   = 510
+        BTN_H   = 46
+        BTN_GAP = 6
+
+        # top bar (28) + club status (46+4) + next match (58+6) = y offset for nav
+        Y0 = 28 + 46 + 4 + 58 + 6
+
+        BTN_FORTS_W = 280
+        BTN_FORTS_H = 44
+        BTN_FORTS_X = (NAV_W - BTN_FORTS_W) // 2 + 4
+        BTN_FORTS_Y = H_BASE - 22 - BTN_FORTS_H - 8
+
+        if event.type == pygame.KEYDOWN:
+            tast_map = {
+                pygame.K_F1: 0, pygame.K_F2: 1, pygame.K_F3: 2,
+                pygame.K_F4: 3, pygame.K_F5: 4, pygame.K_F6: 5,
+            }
+            if event.key in tast_map:
+                idx = tast_map[event.key]
+                if idx < len(rader):
+                    rader[idx][1]()
+            elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                self.on_fortsett()
+
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            mx, my = ui.base_mus()
+            # Nav buttons
+            for i, (_, callback, _) in enumerate(rader):
+                ry = Y0 + i * (BTN_H + BTN_GAP)
+                if 4 <= mx <= 4 + NAV_W and ry <= my < ry + BTN_H:
+                    callback()
+                    return
+            # Continue button
+            if (BTN_FORTS_X <= mx <= BTN_FORTS_X + BTN_FORTS_W
+                    and BTN_FORTS_Y <= my <= BTN_FORTS_Y + BTN_FORTS_H):
+                self.on_fortsett()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # SCREEN: MATCHDAY HUB
 # ─────────────────────────────────────────────────────────────────────────────
 class KampdagSkjerm(SkjermData):
@@ -1981,14 +2243,14 @@ class KlubbInfoSkjerm(SkjermData):
 
     def __init__(self, klubb, tabell=None, terminliste=None,
                  stat_register=None, on_tilbake: Callable = None,
-                 on_spillerkort: Callable = None):
+                 on_spillerkort: Callable = None, start_fane: int = 0):
         self.klubb          = klubb
         self.tabell         = tabell          # Seriatabell for this club's division
         self.terminliste    = terminliste or []  # list of Kamp objects involving this club
         self.stat_register  = stat_register   # SpillerStatistikkRegister
         self.on_tilbake     = on_tilbake or (lambda: None)
         self.on_spillerkort = on_spillerkort  # Callable(spiller, liste, idx)
-        self._fane          = 0
+        self._fane          = start_fane
         self._scroll        = 0
         self._hover_idx     = -1
 
