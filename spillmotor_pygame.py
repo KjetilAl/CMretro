@@ -31,6 +31,7 @@ from ui_pygame import (
     UIMotor,
     HovedmenySkjerm,
     VelgKlubbSkjerm,
+    HubSkjerm,
     KampdagSkjerm,
     LaguttakSkjerm,
     SpillerstallSkjerm,
@@ -172,6 +173,7 @@ class SpillmotorPygame:
         self.ui.manager_fornavn      = ""
         self.ui.manager_etternavn    = ""
         self._tabeller: dict[str, Seriatabell] = {}
+        self._siste_resultat = None   # (h_navn, h_maal, b_navn, b_maal) etter sist spilte kamp
         self.cup_motor = None
         self.spillermarked = SpillerMarked()
         self._sesong_aar = SESONG_AAR
@@ -334,10 +336,89 @@ class SpillmotorPygame:
         # aktiv_cup er nå cup_pagar (2024/2025) – runde 4+ trekkes via kalender-hendelser
 
     # =========================================================================
+    # HUB / LANDING PAGE
+    # =========================================================================
+    def _finn_neste_kamp(self):
+        """
+        Finner neste kommende kamp for spillerens klubb i kalenderen.
+        Returnerer (dato, kamp) eller None.
+        """
+        if not self.kalender:
+            return None
+        dato = self.kalender.dagens_dato
+        slutt = datetime.date(dato.year, 12, 31)
+        d = dato + datetime.timedelta(days=1)
+        while d <= slutt:
+            dag = self.kalender._dager.get(d)
+            if dag:
+                for ki in getattr(dag, 'kamper', []):
+                    kamp = getattr(ki, 'kamp', ki)
+                    if (getattr(kamp, 'hjemme', None) == self.spiller_klubb
+                            or getattr(kamp, 'borte', None) == self.spiller_klubb):
+                        if not getattr(kamp, 'spilt', False) and getattr(kamp, 'resultat', None) is None:
+                            return (d, kamp)
+            d += datetime.timedelta(days=1)
+        return None
+
+    def _vis_hub(self, siste_resultat=None):
+        """
+        Viser HubSkjerm og blokkerer til brukeren klikker «Fortsett».
+        Brukes som landingsside mellom hendelser.
+        """
+        ferdig = {"v": False}
+
+        def _fortsett():
+            ferdig["v"] = True
+
+        def _gå_innboks():
+            uleste = [h for h in self.hendelser.nyhets_ko if not h.lest]
+            if uleste:
+                linjer = []
+                for h in uleste[:10]:
+                    linjer.append(getattr(h, 'tekst', str(h)))
+                    h.lest = True
+                self._vis_info("INNBOKS", linjer)
+            else:
+                self._vis_info("INNBOKS", ["Ingen nye meldinger."])
+
+        def _gå_terminliste():
+            self._vis_klubb_info(self.spiller_klubb, on_tilbake=lambda: None, start_fane=4)
+
+        uleste_antall = sum(1 for h in self.hendelser.nyhets_ko if not h.lest)
+        manager_str   = f"{self.manager_fornavn} {self.manager_etternavn}".strip()
+        neste_kamp    = self._finn_neste_kamp()
+
+        skjerm = HubSkjerm(
+            spiller_klubb  = self.spiller_klubb,
+            dato           = self.kalender.dagens_dato,
+            tabeller       = self._tabeller,
+            uleste_antall  = uleste_antall,
+            manager_navn   = manager_str,
+            neste_kamp     = neste_kamp,
+            siste_resultat = siste_resultat,
+            on_innboks     = _gå_innboks,
+            on_spillerstall= lambda: self._vis_spillerstall(on_tilbake=lambda: None),
+            on_tabell      = lambda: self._vis_tabell(on_tilbake=lambda: None),
+            on_terminliste = _gå_terminliste,
+            on_laguttak    = lambda: self._vis_laguttak(
+                                TroppBuilder(self.spiller_klubb), "?", on_ferdig=lambda: None),
+            on_klubbinfo   = lambda: self._vis_klubb_info(self.spiller_klubb, on_tilbake=lambda: None),
+            on_fortsett    = _fortsett,
+        )
+        self.ui.bytt_skjerm(skjerm)
+
+        while self._kjører and self.ui.tikk():
+            if ferdig["v"]:
+                break
+
+    # =========================================================================
     # GAME LOOP
     # =========================================================================
     def _game_loop(self):
         """Tikker én dag om gangen. Stopper kun på hendelsesdager. Løkker i uendelig antall sesonger."""
+        # Vis hub som startskjerm
+        self._vis_hub()
+
         while self._kjører and self.ui.tikk():
             dag  = self.kalender.simuler_neste_dag()
             dato = self.kalender.dagens_dato
@@ -354,6 +435,10 @@ class SpillmotorPygame:
 
             # Hendelsesdag — vis UI og vent
             self._vis_hendelsesdag(dag, dato)
+
+            # Vis hub igjen etter hver hendelsesdag
+            if self._kjører:
+                self._vis_hub(siste_resultat=self._siste_resultat)
 
     def _hvil_alle(self, dag):
         # Trekk lønn og betal regninger hver mandag
@@ -611,7 +696,7 @@ class SpillmotorPygame:
             )
         )
 
-    def _vis_klubb_info(self, klubb, on_tilbake: callable):
+    def _vis_klubb_info(self, klubb, on_tilbake: callable, start_fane: int = 0):
         """Push KlubbInfoSkjerm for any club."""
         # Collect terminliste entries involving this club from all avdelinger
         alle_avdelinger = (
@@ -651,6 +736,7 @@ class SpillmotorPygame:
                 stat_register=stat_register,
                 on_tilbake=_tilbake,
                 on_spillerkort=lambda s, l, i: self._vis_spillerkort(s, l, i),
+                start_fane=start_fane,
             )
         )
 
@@ -674,6 +760,14 @@ class SpillmotorPygame:
         )
 
         kamp.registrer_resultat(resultat.hjemme_maal, resultat.borte_maal)
+
+        # Lagre siste resultat for hub-visning
+        self._siste_resultat = (
+            getattr(hjemme_klubb, 'navn', resultat.hjemme_navn),
+            resultat.hjemme_maal,
+            getattr(borte_klubb, 'navn', resultat.borte_navn),
+            resultat.borte_maal,
+        )
 
         # Oppdater riktig tabell og statistikkregister
         if kamp_type == "serie" and getattr(kamp.hjemme, 'divisjon', None) in self._tabeller:
